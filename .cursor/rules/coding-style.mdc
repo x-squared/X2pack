@@ -1,0 +1,16 @@
+# Coding Style
+
+## TypeScript / React
+
+- TypeScript strict mode with `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitReturns`. No `any`. Use `unknown` with narrowing at boundaries.
+- Explicit return types on all exported functions.
+- Use `type` imports for type-only imports: `import type { Foo } from "..."`.
+- Pure functions return new values; never mutate arguments.
+- No inline comments explaining *what* the code does. Only add a comment when the *why* is non-obvious.
+- File names: `PascalCase` for React components, `camelCase` for modules, `kebab-case` for CSS files.
+
+## Identifiers
+
+- Constants: `UPPER_SNAKE_CASE`.
+- Event handler props: `on<Action>` (e.g. `onSave`). Handler functions inside components: `handle<Action>`.
+- DB operation functions: verb-first — `getPackList`, `savePackList`, `deletePacking`.
