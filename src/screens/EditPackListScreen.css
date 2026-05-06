@@ -1,0 +1,259 @@
+/* ── Screen shell ─────────────────────────────── */
+.edit-list-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  width: 100%;
+  max-width: var(--screen-max-width);
+  margin: 0 auto;
+  background: transparent;
+}
+
+.edit-list-screen__header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--header-height);
+  padding: 0 var(--space-3);
+  background: var(--color-bg);
+  background-image: var(--bg-noise);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.edit-list-screen__header-title {
+  flex: 1;
+  text-align: center;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.edit-list-screen__content {
+  flex: 1;
+  padding: var(--space-4);
+  padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+
+/* ── Save button ────────────────────────────── */
+.edit-list-screen__save-btn {
+  padding: 0 var(--space-4);
+  min-height: 34px;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
+}
+
+.edit-list-screen__save-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.edit-list-screen__error {
+  background: rgba(185, 28, 28, 0.08);
+  color: var(--color-danger);
+  padding: var(--space-3) 0;
+  margin-bottom: var(--space-4);
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid rgba(185, 28, 28, 0.15);
+}
+
+/* ── Section label ──────────────────────────── */
+.edit-list-screen__section {
+  margin-bottom: var(--space-6);
+}
+
+.edit-list-screen__label {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 0;
+  margin-bottom: var(--space-2);
+}
+
+/* ── Input (name field) ─────────────────────────────────── */
+.edit-list-screen__input {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  box-shadow: var(--shadow-sm);
+}
+
+.edit-list-screen__input:focus {
+  outline: none;
+  border-color: rgba(0, 0, 0, 0.4);
+}
+
+.edit-list-screen__input--error {
+  border-color: var(--color-danger);
+  background: rgba(185, 28, 28, 0.04);
+}
+
+.edit-list-screen__input--error:focus {
+  border-color: var(--color-danger);
+}
+
+/* ── References list ────────────────────────── */
+.edit-list-screen__ref-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+}
+
+.edit-list-screen__ref-item {
+  background: var(--color-surface);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.edit-list-screen__checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  min-height: 48px;
+  cursor: pointer;
+  font-size: var(--font-size-base);
+}
+
+.edit-list-screen__checkbox-label input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+/* Included ref row — move buttons + checkbox-label */
+.edit-list-screen__ref-item--included {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: var(--space-2);
+  min-height: 48px;
+}
+
+.edit-list-screen__ref-item--included .edit-list-screen__checkbox-label {
+  flex: 1;
+}
+
+/* ── Items list ─────────────────────────────── */
+.edit-list-screen__items {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  margin-bottom: var(--space-3);
+}
+
+.edit-list-screen__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  min-height: 52px;
+  background: var(--color-surface);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Move buttons ───────────────────────────── */
+.edit-list-screen__move-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.edit-list-screen__move-btn {
+  color: var(--color-muted);
+  font-size: 9px;
+  min-width: 24px;
+  min-height: 20px;
+  padding: 0;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+}
+
+.edit-list-screen__move-btn:active {
+  background: var(--color-fill);
+}
+
+.edit-list-screen__move-btn:disabled {
+  opacity: 0.20;
+}
+
+/* ── Item text (display mode — tap to edit) ─── */
+.edit-list-screen__item-text {
+  flex: 1;
+  text-align: left;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  padding: var(--space-1) var(--space-2);
+  min-width: 0;
+  cursor: text;
+  border-radius: var(--radius-sm);
+}
+
+.edit-list-screen__item-text:active {
+  background: var(--color-fill);
+}
+
+/* ── Item input (edit mode) ─────────────────── */
+.edit-list-screen__item-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  padding: var(--space-1) var(--space-2);
+  min-width: 0;
+  outline: none;
+}
+
+.edit-list-screen__item-input--editing {
+  border-bottom: 1.5px solid var(--color-text);
+  border-radius: 0;
+}
+
+/* ── Remove button ──────────────────────────── */
+.edit-list-screen__remove-btn {
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  min-width: 32px;
+  min-height: 32px;
+  flex-shrink: 0;
+}
+
+/* ── Add row — inset to match inputs ─────────── */
+.edit-list-screen__add-row {
+  display: flex;
+  gap: var(--space-2);
+  padding: 0;
+}
+
+.edit-list-screen__add-btn {
+  flex-shrink: 0;
+  padding: 0 var(--space-4);
+  min-height: 44px;
+  border-radius: var(--radius-md);
+}

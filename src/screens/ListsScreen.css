@@ -1,0 +1,185 @@
+/* ── Screen shell ─────────────────────────────── */
+.lists-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  width: 100%;
+  max-width: var(--screen-max-width);
+  margin: 0 auto;
+  background: transparent;
+}
+
+.lists-screen__header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--header-height);
+  padding: 0 var(--space-3);
+  background: var(--color-bg);
+  background-image: var(--bg-noise);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.lists-screen__header-title {
+  flex: 1;
+  text-align: center;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lists-screen__back-btn {
+  font-size: 32px;
+  font-weight: var(--font-weight-medium);
+}
+
+.lists-screen__add-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+}
+
+.lists-screen__add-icon {
+  width: 36px;
+  height: 36px;
+  display: block;
+}
+
+.lists-screen__file-input {
+  display: none;
+}
+
+.lists-screen__content {
+  flex: 1;
+  padding: var(--space-4) var(--space-2);
+  padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+
+/* ── List container ──────────────────────────── */
+.lists-screen__list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+}
+
+/* ── Items ───────────────────────────────────── */
+.lists-screen__empty {
+  color: var(--color-muted);
+  text-align: center;
+  margin-top: var(--space-12);
+  line-height: 1.6;
+}
+
+.lists-screen__item {
+  display: flex;
+  align-items: stretch;
+  background: var(--color-surface);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+/* ── Move buttons ───────────────────────────── */
+.lists-screen__move-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: var(--space-2) 0 var(--space-2) var(--space-2);
+}
+
+.lists-screen__move-btn {
+  color: var(--color-muted);
+  font-size: 9px;
+  min-width: 24px;
+  min-height: 20px;
+  padding: 0;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+}
+
+.lists-screen__move-btn:active {
+  background: var(--color-fill);
+}
+
+.lists-screen__move-btn:disabled {
+  opacity: 0.20;
+}
+
+/* Full-width tappable row — same visual weight as packing item rows */
+.lists-screen__item-row {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  min-height: 56px;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.lists-screen__item-row:active {
+  background: var(--color-fill);
+}
+
+.lists-screen__item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.lists-screen__item-name {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lists-screen__item-meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+}
+
+.lists-screen__chevron {
+  flex-shrink: 0;
+  font-size: 20px;
+  color: var(--color-muted);
+  line-height: 1;
+}
+
+/* Destructive icon — sits outside the main tap target */
+.lists-screen__btn-delete {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  min-height: 56px;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+  background: transparent;
+  cursor: pointer;
+  border-left: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+.lists-screen__btn-delete:active {
+  background: rgba(185, 28, 28, 0.06);
+}

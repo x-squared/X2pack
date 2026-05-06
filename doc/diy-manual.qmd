@@ -1,0 +1,288 @@
+---
+title: "X2pack — Developer Manual"
+format: html
+toc: true
+toc-depth: 3
+---
+
+## Quick start
+
+### First-time setup
+
+Run this **once** after cloning (installs npm dependencies). You can run it from the repository root, or pass the script path from anywhere:
+
+```{bash}
+bash scripts/setup-once.sh
+```
+
+If you need Python for tooling, initialise `pyenv` in your shell first (otherwise `pyenv shell ...` fails):
+
+```{bash}
+eval "$(pyenv init - zsh)"
+```
+
+### Start the dev server
+
+```{bash}
+npm run dev
+```
+
+The app is available at `http://localhost:5173`. The dev server binds to all network interfaces (`--host`), so it is also reachable from other devices on the same WiFi — see **Local iPhone testing** below.
+
+### Local iPhone testing (development)
+
+```{bash}
+# In a separate terminal, create a tunnel to the dev server (URL of dev server must be entered here)
+cloudflared tunnel --url http://localhost:5173
+# Prints an https://... URL — use that URL in Safari on your iPhone
+```
+
+> The tunnel URL changes every time you restart `cloudflared`. Install from a tunnel only for development testing — not for everyday use.
+
+------------------------------------------------------------------------
+
+## Project structure
+
+```         
+X2pack/
+├── .cursor/rules/      Cursor coding rules (copies of dev/rules/)
+├── dev/
+│   ├── plans/          Implementation plan documents
+│   └── rules/          Coding rules (.mdc files)
+├── doc/                This manual and other documentation
+├── dist/               Production build output (git-ignored)
+├── public/             Static assets (icons, favicon)
+└── src/
+    ├── components/     Shared UI components (UpdatePrompt)
+    ├── db/             IndexedDB access layer
+    ├── screens/        One file per screen + sibling .css
+    ├── styles/         tokens.css, base.css
+    ├── types/          index.ts — all shared TypeScript types
+    ├── icon-source.svg Source artwork for all app icons
+    ├── App.tsx         Screen state machine
+    └── main.tsx        Entry point
+```
+
+------------------------------------------------------------------------
+
+## Install on iPhone as a home-screen app
+
+X2pack is a **Progressive Web App (PWA)**. On iPhone, Safari lets you save it to the home screen, where it opens full-screen — with its own icon, no browser chrome, and offline support.
+
+### Requirements
+
+- Opened in **Safari** (Chrome and Firefox on iOS cannot install PWAs)
+- Served over **HTTPS**
+
+### Steps
+
+1. Open the app URL in **Safari** on your iPhone.
+2. Tap the **Share** button (the box-with-arrow icon at the bottom of the screen).
+3. Scroll the share sheet and tap **Add to Home Screen**.
+4. Confirm the name ("X2pack") and tap **Add**.
+
+The app now appears on the home screen. Tapping it opens it full-screen like a native app.
+
+### Getting an HTTPS URL
+
+The service worker — required for the home-screen install prompt and offline caching — only activates over HTTPS.
+
+**For everyday use — deploy to a static host:**
+
+Build once and push to any static hosting provider (Netlify, Vercel, etc.) — they all provide HTTPS automatically. The installed app will always open from that URL even without an internet connection (cached content). See **Deployment to a static host** below.
+
+**For one-off testing from your Mac — HTTPS tunnel:**
+
+Run both commands, each in its own terminal tab:
+
+```{bash}
+# Create a tunnel to the dev server (URL of dev server must be entered here)
+cloudflared tunnel --url http://localhost:5173
+# Prints an https://... URL — use that URL in Safari on your iPhone
+```
+
+> The tunnel URL changes every time you restart `cloudflared`. Install from a tunnel only for development testing — not for everyday use.
+
+------------------------------------------------------------------------
+
+## Running tests
+
+```{bash}
+# Run all unit tests once
+npm test
+
+# Watch mode (re-runs on file save)
+npm run test:watch
+
+# Generate a coverage report
+npm run coverage
+```
+
+Tests live in `src/db/packLists.test.ts`. They cover the pure helper functions: `hasCircularReference`, `isDependedUpon`, and `resolveLeafLists`.
+
+------------------------------------------------------------------------
+
+## Type checking
+
+The build runs `tsc -b` before Vite, so a clean build implicitly type-checks. To check without building:
+
+```{bash}
+npx tsc -b --noEmit
+```
+
+------------------------------------------------------------------------
+
+## Production build
+
+```{bash}
+npm run build
+```
+
+Output goes to `dist/`. The folder is self-contained — upload it to any static host. The build includes:
+
+-   Pre-bundled JS and CSS
+-   `index.html`
+-   `manifest.webmanifest` (PWA manifest)
+-   `sw.js` + `workbox-*.js` (service worker with offline caching)
+
+To preview the production build locally before deploying:
+
+```{bash}
+npm run preview
+# Serves dist/ at http://localhost:4173
+```
+
+------------------------------------------------------------------------
+
+## Deployment to a static host
+
+The `dist/` folder is the deployable artifact. Upload its contents to the web root of your hosting provider. All routes must serve `index.html` as a fallback (single-page app mode).
+
+### Via rsync (SSH access required)
+
+```{bash}
+npm run build
+rsync -avz --delete dist/ user@yourserver.com:/var/www/x2pack/
+```
+
+### Via FTP / SFTP
+
+Use any FTP client (e.g. Cyberduck, FileZilla). Upload the contents of `dist/` to the web root. Overwrite all existing files.
+
+### Via Netlify CLI
+
+```{bash}
+npm install -g netlify-cli
+netlify deploy --prod --dir dist
+```
+
+### Via Vercel CLI
+
+```{bash}
+npm install -g vercel
+vercel --prod
+```
+
+> **HTTPS requirement:** The service worker only activates over HTTPS. Your hosting provider must serve the site over HTTPS (virtually all modern providers do this by default via Let's Encrypt).
+
+------------------------------------------------------------------------
+
+## PWA icons
+
+All icon files are pre-generated and committed in `public/`. The source artwork is `src/icon-source.svg`.
+
+| File                   | Size       | Used for                            |
+|------------------------|------------|-------------------------------------|
+| `pwa-192x192.png`      | 192×192 px | Android home screen                 |
+| `pwa-512x512.png`      | 512×512 px | Splash screen + maskable icon       |
+| `apple-touch-icon.png` | 180×180 px | iOS home screen (Add to Home Screen)|
+| `favicon.svg`          | vector     | Browser tab (modern browsers)       |
+
+To regenerate from the source SVG (requires `librsvg` — install with `brew install librsvg`):
+
+```{bash}
+rsvg-convert -w 512 -h 512 src/icon-source.svg -o public/pwa-512x512.png
+rsvg-convert -w 192 -h 192 src/icon-source.svg -o public/pwa-192x192.png
+rsvg-convert -w 180 -h 180 src/icon-source.svg -o public/apple-touch-icon.png
+cp src/icon-source.svg public/favicon.svg
+```
+
+------------------------------------------------------------------------
+
+## Service worker and updates
+
+The service worker is generated by `vite-plugin-pwa` (Workbox). It pre-caches all build assets on first load, enabling fully offline use thereafter.
+
+**Update flow:**
+
+1.  You deploy a new build to your host.
+2.  When a user opens the app, the browser checks for a new service worker in the background.
+3.  If a new SW is found, the `UpdatePrompt` banner appears: *"A new version is available."*
+4.  The user taps **Update** — the new SW activates and the page reloads.
+
+The app also checks for updates once per hour while it is open.
+
+**Force-clear the service worker in development** (if caching causes stale behaviour):
+
+Open Chrome DevTools → Application → Service Workers → click **Unregister**, then hard-reload (`Cmd+Shift+R`).
+
+------------------------------------------------------------------------
+
+## Data model
+
+All data lives in IndexedDB in the browser — there is no server-side database. Two stores:
+
+| Store       | Key         | Contents                              |
+|-------------|-------------|---------------------------------------|
+| `packLists` | `id` (UUID) | Predefined, reusable packing lists    |
+| `packings`  | `id` (UUID) | Active and completed packing sessions |
+
+The DB is initialised automatically on first launch. There is no migration step — the schema is defined once in `src/db/db.ts`.
+
+**To wipe all data** (development / reset):
+
+Open Chrome DevTools → Application → Storage → click **Clear site data**.
+
+------------------------------------------------------------------------
+
+## Adding a new screen
+
+1.  Create `src/screens/MyScreen.tsx` and `src/screens/MyScreen.css`.
+
+2.  Add a new variant to the `Screen` union in `src/types/index.ts`:
+
+   ```{ts}
+    | { id: 'my-screen'; someParam: string }
+    ```
+
+3.  Import and render it in `src/App.tsx`:
+
+    ```{tsx}
+    {screen.id === 'my-screen' && (
+      <MyScreen someParam={screen.someParam} onNavigate={setScreen} />
+    )}
+    ```
+
+4.  Navigate to it from any other screen:
+
+    ```{ts}
+    onNavigate({ id: 'my-screen', someParam: 'value' })
+    ```
+
+See `dev/rules/navigation-architecture.mdc` for the full contract.
+
+------------------------------------------------------------------------
+
+## Coding rules
+
+All rules are in `dev/rules/` (copies are in `.cursor/rules/`):
+
+| File | Topic |
+|----|----|
+| `coding-style.mdc` | TypeScript / React style conventions |
+| `typescript-strict-types.mdc` | Strict TypeScript compiler flags |
+| `component-contract.mdc` | React component and props conventions |
+| `navigation-architecture.mdc` | Screen state machine, data flow |
+| `data-model.mdc` | IndexedDB stores, types, constraints |
+| `ui-style-and-theming.mdc` | CSS tokens, BEM naming, mobile UX |
+| `pwa-offline.mdc` | Service worker, offline behaviour, local testing |

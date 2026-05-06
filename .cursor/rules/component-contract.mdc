@@ -1,0 +1,37 @@
+# React Component Contract
+
+## File structure
+
+Each component lives in its own `.tsx` file. Its CSS lives in a sibling `.css` file with the same base name.
+
+## Props
+
+- Props interface declared immediately above the component function, never exported unless reused elsewhere.
+- Destructure all props in the function signature.
+- Avoid spreading `...props` onto DOM elements.
+
+## State
+
+- Component-local state via `useState`. Shared cross-screen state (active packings list) is reloaded from IndexedDB on each screen mount — no global mutable store.
+
+## Events
+
+- Event handler props named `on<Action>`.
+- Handler functions inside the component named `handle<Action>`.
+
+## Rendering
+
+- Each area of the UI has exactly one component responsible for rendering it.
+- No component imperatively renders another's content.
+
+## Accessibility
+
+- Interactive elements use semantic HTML (`button`, `a`, `nav`, etc.).
+- `aria-label` on icon-only buttons.
+- All interactive items are reachable by keyboard.
+
+## Mobile conventions
+
+- Touch targets are at least 44×44 px.
+- No hover-only interactions — all actions available via tap.
+- Destructive actions (delete, discard) require a confirmation step.

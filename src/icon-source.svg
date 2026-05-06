@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Blue background -->
+  <rect width="512" height="512" rx="80" fill="#0ea5e9"/>
+
+  <!-- Bag top dome -->
+  <ellipse cx="256" cy="204" rx="144" ry="80" fill="white"/>
+
+  <!-- Bag body -->
+  <rect x="112" y="204" width="288" height="236" rx="40" fill="white"/>
+
+  <!-- Handle loop -->
+  <path d="M216 124 Q216 80 256 80 Q296 80 296 124"
+        fill="none" stroke="white" stroke-width="28" stroke-linecap="round"/>
+
+  <!-- Checkmark (blue on white bag) -->
+  <polyline points="160,316 224,376 360,248"
+            fill="none" stroke="#0ea5e9" stroke-width="36"
+            stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

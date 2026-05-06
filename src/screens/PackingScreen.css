@@ -1,0 +1,256 @@
+/* ── Screen shell ─────────────────────────────── */
+.packing-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  width: 100%;
+  max-width: var(--screen-max-width);
+  margin: 0 auto;
+  background: transparent;
+}
+
+/* Header: name + date stacked */
+.packing-screen__header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--header-height);
+  padding: 0 var(--space-3);
+  background: var(--color-bg);
+  background-image: var(--bg-noise);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.packing-screen__content {
+  flex: 1;
+  padding: var(--space-4) var(--space-2);
+  padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+
+/* ── Header internals ─────────────────────────── */
+.packing-screen__header-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+}
+
+.packing-screen__name {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.1px;
+}
+
+.packing-screen__date {
+  font-size: var(--font-size-xs);
+  color: var(--color-muted);
+}
+
+.packing-screen__done-badge {
+  flex-shrink: 0;
+  background: rgba(52, 199, 89, 0.15);
+  color: var(--color-success);
+  border-radius: var(--radius-full);
+  padding: 3px var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Progress bar sits flush under the header, edge-to-edge */
+.packing-screen__progress-bar {
+  height: 3px;
+  background: var(--color-fill);
+  overflow: hidden;
+}
+
+.packing-screen__progress-fill {
+  height: 100%;
+  background: var(--color-text);
+  transition: width var(--transition-base);
+}
+
+/* Counter sub-header — visually part of the navigation zone */
+.packing-screen__counter {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-separator);
+  text-align: center;
+  letter-spacing: 0.01em;
+}
+
+.packing-screen__done-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: rgba(45, 106, 79, 0.10);
+  color: var(--color-success);
+  border-bottom: 1px solid rgba(45, 106, 79, 0.18);
+  padding: var(--space-3) var(--space-4);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-6);
+  letter-spacing: -0.2px;
+}
+
+.packing-screen__done-icon {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+/* ── Groups ─────────────────────────────────── */
+.packing-screen__group {
+  margin-bottom: var(--space-6);
+}
+
+/* Section label — clearly distinct from white item rows */
+.packing-screen__group-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 0 var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+/* ── Items list ─────────────────────────────── */
+.packing-screen__items {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+}
+
+/* ── Item rows ──────────────────────────────── */
+.packing-screen__item {
+  background: var(--color-surface);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.packing-screen__item-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  min-height: 52px;
+  text-align: left;
+  background: transparent;
+  transition: background-color var(--transition-fast);
+}
+
+.packing-screen__item-btn:active {
+  background: var(--color-fill);
+}
+
+/* Status icon — circle sized and coloured per state */
+.packing-screen__item-icon {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-lg);
+  border-radius: var(--radius-full);
+}
+
+.packing-screen__item-text {
+  flex: 1;
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+}
+
+.packing-screen__item-status-label {
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+/* ── Status variants ────────────────────────── */
+.packing-screen__item--pending .packing-screen__item-icon {
+  color: var(--color-muted);
+  border: 1.5px solid rgba(60, 60, 67, 0.25);
+}
+
+.packing-screen__item--packed .packing-screen__item-icon {
+  color: var(--color-success);
+  background: rgba(52, 199, 89, 0.14);
+}
+
+.packing-screen__item--packed .packing-screen__item-text {
+  text-decoration: line-through;
+  color: var(--color-muted);
+}
+
+.packing-screen__item--packed .packing-screen__item-status-label {
+  color: var(--color-success);
+}
+
+.packing-screen__item--discarded .packing-screen__item-icon {
+  color: var(--color-danger);
+  background: rgba(255, 59, 48, 0.12);
+}
+
+.packing-screen__item--discarded .packing-screen__item-text {
+  text-decoration: line-through;
+  color: var(--color-muted);
+}
+
+.packing-screen__item--discarded .packing-screen__item-status-label {
+  color: var(--color-danger);
+}
+
+/* ── Add item ────────────────────────────────── */
+.packing-screen__add-section {
+  margin-bottom: var(--space-6);
+}
+
+.packing-screen__add-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.packing-screen__add-input {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  box-shadow: var(--shadow-sm);
+}
+
+.packing-screen__add-input:focus {
+  outline: none;
+  border-color: rgba(0, 0, 0, 0.4);
+}
+
+.packing-screen__add-btn {
+  flex-shrink: 0;
+  padding: 0 var(--space-4);
+  min-height: 44px;
+  border-radius: var(--radius-md);
+}
+
+.packing-screen__add-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}

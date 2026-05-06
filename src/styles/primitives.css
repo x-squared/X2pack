@@ -1,0 +1,77 @@
+/* ── Buttons ──────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  transition: opacity var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:active {
+  opacity: 0.55;
+}
+
+/* Black pill — the ink-stamp primary action */
+.btn--primary {
+  background: var(--color-text);
+  color: #fff;
+  letter-spacing: -0.1px;
+}
+
+.btn--primary:hover {
+  background: #000;
+}
+
+.btn--danger {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+/* Ghost = thin black outline, no fill */
+.btn--ghost {
+  background: transparent;
+  color: var(--color-text);
+  border: 1.5px solid rgba(0, 0, 0, 0.18);
+  font-weight: var(--font-weight-medium);
+}
+
+.btn--icon {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-lg);
+  background: transparent;
+  color: var(--color-muted);
+}
+
+.btn--icon:active {
+  background: var(--color-fill);
+}
+
+.btn--back {
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 var(--space-1);
+  font-size: 26px;
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text);
+  background: transparent;
+  line-height: 1;
+}
+
+/* ── Card ─────────────────────────────────────── */
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-4);
+}
