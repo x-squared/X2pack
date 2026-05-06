@@ -123,7 +123,7 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
       <main className="packing-screen__content">
         {isDone && (
           <div className="packing-screen__done-banner">
-            <img src="/complete.png" className="packing-screen__done-icon" alt="" />
+            <img src={`${import.meta.env.BASE_URL}complete.png`} className="packing-screen__done-icon" alt="" />
             <span>All packed!</span>
           </div>
         )}

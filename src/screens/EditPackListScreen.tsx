@@ -9,8 +9,8 @@ import type { PackList, Screen } from '../types/index.js';
 import './EditPackListScreen.css';
 
 type Props = {
-  listId: string | null;
-  onNavigate: (screen: Screen) => void;
+  readonly listId: string | null;
+  readonly onNavigate: (screen: Screen) => void;
 };
 
 export default function EditPackListScreen({
@@ -25,12 +25,15 @@ export default function EditPackListScreen({
   const [referencedListIds, setReferencedListIds] = useState<string[]>([]);
   const [allLists, setAllLists] = useState<PackList[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [savedVisible, setSavedVisible] = useState(false);
   const newItemRef = useRef<HTMLInputElement>(null);
-
-  const nameInvalid = nameTouched && !name.trim();
-  const canSave = !!name.trim();
+  const effectiveIdRef = useRef<string | null>(listId);
+  const dirtyRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isNew = listId === null;
+  const nameInvalid = nameTouched && !name.trim();
 
   useEffect(() => {
     void load();
@@ -42,6 +45,7 @@ export default function EditPackListScreen({
     if (listId) {
       const existing = await getPackList(listId);
       if (existing) {
+        dirtyRef.current = false;
         setName(existing.name);
         setItems([...existing.items]);
         setReferencedListIds([...existing.referencedListIds]);
@@ -49,19 +53,69 @@ export default function EditPackListScreen({
     }
   }
 
+  useEffect(() => {
+    if (!dirtyRef.current) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => { void doSave(); }, 600);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [name, items, referencedListIds]);
+
+  async function doSave(): Promise<void> {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+
+    const effectiveId = effectiveIdRef.current ?? '__new-list__';
+    if (hasCircularReference(effectiveId, referencedListIds, allLists)) {
+      setError('These references create a circular dependency. Please remove one.');
+      return;
+    }
+
+    setError(null);
+    try {
+      const saved = await savePackList(
+        { name: trimmedName, items, referencedListIds },
+        effectiveIdRef.current ?? undefined,
+      );
+      effectiveIdRef.current = saved.id;
+      dirtyRef.current = false;
+      setSavedVisible(true);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setSavedVisible(false), 1500);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Could not save. ${message}`);
+    }
+  }
+
+  async function handleBack(): Promise<void> {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    if (dirtyRef.current) await doSave();
+    onNavigate({ id: 'lists' });
+  }
+
+  function markDirty(): void {
+    dirtyRef.current = true;
+  }
+
   function handleAddItem(): void {
     const trimmed = newItemText.trim();
     if (!trimmed) return;
+    markDirty();
     setItems((prev) => [...prev, trimmed]);
     setNewItemText('');
     newItemRef.current?.focus();
   }
 
   function handleItemChange(index: number, value: string): void {
+    markDirty();
     setItems((prev) => prev.map((item, i) => (i === index ? value : item)));
   }
 
   function handleRemoveItem(index: number): void {
+    markDirty();
     setItems((prev) => prev.filter((_, i) => i !== index));
     setEditingIndex(null);
   }
@@ -73,15 +127,18 @@ export default function EditPackListScreen({
   }
 
   function handleAddRef(id: string): void {
+    markDirty();
     setReferencedListIds((prev) => [...prev, id]);
   }
 
   function handleRemoveRef(id: string): void {
+    markDirty();
     setReferencedListIds((prev) => prev.filter((r) => r !== id));
   }
 
   function handleMoveRefUp(index: number): void {
     if (index === 0) return;
+    markDirty();
     setReferencedListIds((prev) => {
       const next = [...prev];
       const tmp = next[index - 1] as string;
@@ -92,6 +149,7 @@ export default function EditPackListScreen({
   }
 
   function handleMoveRefDown(index: number): void {
+    markDirty();
     setReferencedListIds((prev) => {
       if (index >= prev.length - 1) return prev;
       const next = [...prev];
@@ -104,6 +162,7 @@ export default function EditPackListScreen({
 
   function handleMoveUp(index: number): void {
     if (index === 0) return;
+    markDirty();
     setEditingIndex(null);
     setItems((prev) => {
       const next = [...prev];
@@ -115,6 +174,7 @@ export default function EditPackListScreen({
   }
 
   function handleMoveDown(index: number): void {
+    markDirty();
     setEditingIndex(null);
     setItems((prev) => {
       if (index === prev.length - 1) return prev;
@@ -124,36 +184,6 @@ export default function EditPackListScreen({
       next[index + 1] = tmp;
       return next;
     });
-  }
-
-  async function handleSave(): Promise<void> {
-    setError(null);
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      setError('Please enter a name.');
-      return;
-    }
-
-    // Use a deterministic placeholder for new lists to avoid runtime dependency
-    // on crypto.randomUUID() during validation.
-    const effectiveId = listId ?? '__new-list__';
-    if (
-      hasCircularReference(effectiveId, referencedListIds, allLists)
-    ) {
-      setError('These references create a circular dependency. Please remove one.');
-      return;
-    }
-
-    try {
-      await savePackList(
-        { name: trimmedName, items, referencedListIds },
-        listId ?? undefined,
-      );
-      onNavigate({ id: 'lists' });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError(`Could not save list. ${message}`);
-    }
   }
 
   const candidatesForReference = allLists.filter((l) => l.id !== listId);
@@ -169,19 +199,13 @@ export default function EditPackListScreen({
       <header className="edit-list-screen__header">
         <button
           className="btn btn--back"
-          onClick={() => onNavigate({ id: 'lists' })}
+          onClick={() => void handleBack()}
           aria-label="Back"
         >
           ‹
         </button>
         <h1 className="edit-list-screen__header-title">{isNew ? 'New List' : 'Edit List'}</h1>
-        <button
-          className="btn btn--primary edit-list-screen__save-btn"
-          onClick={() => void handleSave()}
-          disabled={!canSave}
-        >
-          Save
-        </button>
+        {savedVisible && <span className="edit-list-screen__saved-indicator">Saved</span>}
       </header>
 
       <main className="edit-list-screen__content">
@@ -196,7 +220,7 @@ export default function EditPackListScreen({
             className={`edit-list-screen__input${nameInvalid ? ' edit-list-screen__input--error' : ''}`}
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => { markDirty(); setName(e.target.value); }}
             onBlur={() => setNameTouched(true)}
             placeholder="e.g. Winter Trip"
           />
@@ -253,7 +277,7 @@ export default function EditPackListScreen({
           <ul className="edit-list-screen__items">
             {items.map((item, index) => (
               <li
-                key={index}
+                key={item}
                 className="edit-list-screen__item"
               >
                 <div className="edit-list-screen__move-btns">

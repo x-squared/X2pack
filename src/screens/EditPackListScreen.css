@@ -42,17 +42,11 @@
   overflow-y: auto;
 }
 
-/* ── Save button ────────────────────────────── */
-.edit-list-screen__save-btn {
-  padding: 0 var(--space-4);
-  min-height: 34px;
+/* ── Saved indicator ────────────────────────── */
+.edit-list-screen__saved-indicator {
   font-size: var(--font-size-sm);
-  border-radius: var(--radius-sm);
-}
-
-.edit-list-screen__save-btn:disabled {
-  opacity: 0.35;
-  pointer-events: none;
+  color: var(--color-muted);
+  flex-shrink: 0;
 }
 
 .edit-list-screen__error {

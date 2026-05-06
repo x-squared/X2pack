@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  base: '/X2pack/',
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
@@ -29,7 +30,7 @@ export default defineConfig({
         background_color: '#f1f5f9',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
+        start_url: '/X2pack/',
         icons: [
           {
             src: 'pwa-192x192.png',

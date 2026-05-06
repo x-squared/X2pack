@@ -116,21 +116,21 @@ export default function ListsScreen({ onNavigate }: Props): React.ReactElement {
           onClick={() => onNavigate({ id: 'edit-pack-list', listId: null })}
           aria-label="New list"
         >
-          <img src="/plus.png" alt="" className="lists-screen__add-icon" />
+          <img src={`${import.meta.env.BASE_URL}plus.png`} alt="" className="lists-screen__add-icon" />
         </button>
         <button
           className="btn lists-screen__add-btn"
           onClick={() => void handleDownload()}
           aria-label="Download lists"
         >
-          <img src="/download.png" alt="" className="lists-screen__add-icon" />
+          <img src={`${import.meta.env.BASE_URL}download.png`} alt="" className="lists-screen__add-icon" />
         </button>
         <button
           className="btn lists-screen__add-btn"
           onClick={() => fileInputRef.current?.click()}
           aria-label="Upload lists"
         >
-          <img src="/upload.png" alt="" className="lists-screen__add-icon" />
+          <img src={`${import.meta.env.BASE_URL}upload.png`} alt="" className="lists-screen__add-icon" />
         </button>
         <input
           ref={fileInputRef}

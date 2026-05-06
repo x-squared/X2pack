@@ -45,14 +45,14 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
             className="btn btn--primary home-screen__action-btn"
             onClick={() => onNavigate({ id: 'new-packing' })}
           >
-            <img src="/pack.png" alt="" className="home-screen__action-icon" />
+            <img src={`${import.meta.env.BASE_URL}pack.png`} alt="" className="home-screen__action-icon" />
             <span>Pack</span>
           </button>
           <button
             className="btn btn--ghost home-screen__action-btn"
             onClick={() => onNavigate({ id: 'lists' })}
           >
-            <img src="/lists.png" alt="" className="home-screen__action-icon" />
+            <img src={`${import.meta.env.BASE_URL}lists.png`} alt="" className="home-screen__action-icon" />
             <span>Lists</span>
           </button>
         </div>
