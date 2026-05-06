@@ -183,6 +183,20 @@ npm install -g vercel
 vercel --prod
 ```
 
+### Via GitHub Pages
+
+GitHub Pages serves a dedicated `gh-pages` branch as a static site over HTTPS — no separate hosting account needed. Requires a public repository.
+
+**Deploy:**
+
+```{bash}
+npm run deploy
+```
+
+This builds the app and pushes `dist/` to the `gh-pages` branch. On first run GitHub detects the branch and activates Pages automatically — no manual configuration required. The live URL follows the pattern `https://username.github.io/X2pack/` and is shown under **Settings → Pages** once active.
+
+> **Base path:** When serving from a sub-path (i.e. no custom domain), add `base: '/X2pack/'` to `vite.config.ts` so Vite resolves assets correctly. Omit this if you point a custom domain at the site.
+
 > **HTTPS requirement:** The service worker only activates over HTTPS. Your hosting provider must serve the site over HTTPS (virtually all modern providers do this by default via Let's Encrypt).
 
 ------------------------------------------------------------------------
