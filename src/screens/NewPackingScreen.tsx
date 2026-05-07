@@ -134,7 +134,12 @@ export default function NewPackingScreen({ onNavigate }: Props): React.ReactElem
               const selectedLists = selectedListIds
                 .map((id) => allLists.find((l) => l.id === id))
                 .filter((l): l is PackList => l !== undefined);
-              const unselectedLists = allLists.filter((l) => !selectedListIds.includes(l.id));
+              const unselectedLists = allLists
+                .filter((l) => !selectedListIds.includes(l.id))
+                .toSorted((a, b) => {
+                  if (a.isMajor === b.isMajor) return 0;
+                  return a.isMajor ? -1 : 1;
+                });
               return (
                 <ul className="new-packing-screen__list">
                   {selectedLists.map((l, index) => (
@@ -164,14 +169,14 @@ export default function NewPackingScreen({ onNavigate }: Props): React.ReactElem
                     </li>
                   ))}
                   {unselectedLists.map((l) => (
-                    <li key={l.id} className="new-packing-screen__list-item">
+                    <li key={l.id} className={`new-packing-screen__list-item${l.isMajor ? ' new-packing-screen__list-item--major' : ''}`}>
                       <label className="new-packing-screen__checkbox-label">
                         <input
                           type="checkbox"
                           checked={false}
                           onChange={() => handleToggle(l.id)}
                         />
-                        <span>{l.name}</span>
+                        <span>{l.isMajor ? <><span className="new-packing-screen__major-star" aria-hidden>★</span>{l.name}</> : l.name}</span>
                       </label>
                     </li>
                   ))}

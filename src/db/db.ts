@@ -14,6 +14,15 @@ type X2PackDB = {
 
 let dbInstance: IDBPDatabase<X2PackDB> | null = null;
 
+// iOS Safari closes IDB connections when a PWA is backgrounded. The 'close'
+// event is unreliable (racy), so we also null out the instance proactively
+// on visibilitychange — this fires before the user can trigger any DB call.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    dbInstance = null;
+  }
+});
+
 export async function getDb(): Promise<IDBPDatabase<X2PackDB>> {
   if (dbInstance) return dbInstance;
   dbInstance = await openDB<X2PackDB>('x2pack', 1, {
@@ -23,6 +32,9 @@ export async function getDb(): Promise<IDBPDatabase<X2PackDB>> {
         database.createObjectStore('packings', { keyPath: 'id' });
       }
     },
+  });
+  dbInstance.addEventListener('close', () => {
+    dbInstance = null;
   });
   return dbInstance;
 }

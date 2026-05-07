@@ -2,24 +2,36 @@ import { useEffect, useState } from 'react';
 import { getAllPackings, deletePacking } from '../db/packings.js';
 import type { Packing, Screen } from '../types/index.js';
 import ConfirmDialog from '../components/ConfirmDialog.js';
+import PwaInstallBanner from '../components/PwaInstallBanner.js';
 import '../components/ConfirmDialog.css';
 import './HomeScreen.css';
 
 type Props = {
-  onNavigate: (screen: Screen) => void;
+  readonly onNavigate: (screen: Screen) => void;
 };
+
+const APP_VERSION = '0.1.1';
+const BUILD_TIME = __BUILD_TIME__;
 
 export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
   const [packings, setPackings] = useState<Packing[]>([]);
   const [discardId, setDiscardId] = useState<string | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
 
   useEffect(() => {
     void loadPackings();
   }, []);
 
+  useEffect(() => {
+    if (!showInfo) return;
+    function onKey(e: KeyboardEvent): void { if (e.key === 'Escape') setShowInfo(false); }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [showInfo]);
+
   async function loadPackings(): Promise<void> {
     const all = await getAllPackings()
-    const sortedByCreatedAt = all.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const sortedByCreatedAt = all.toSorted((a, b) => b.createdAt.localeCompare(a.createdAt));
     setPackings(sortedByCreatedAt);
   }
 
@@ -37,6 +49,9 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
     <div className="home-screen">
       <header className="home-screen__header">
         <h1 className="home-screen__header-title">X2pack</h1>
+        <button className="home-screen__info-btn" onClick={() => setShowInfo(true)} aria-label="App info">
+          <img src={`${import.meta.env.BASE_URL}info.png`} alt="" className="home-screen__info-icon" />
+        </button>
       </header>
 
       <main className="home-screen__content">
@@ -56,6 +71,8 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
             <span>Lists</span>
           </button>
         </div>
+
+        <PwaInstallBanner />
 
         {activePackings.length > 0 && (
           <section className="home-screen__section">
@@ -93,6 +110,22 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
         )}
       </main>
 
+      {showInfo && (
+        <div className="dialog-overlay">
+          <dialog className="dialog info-dialog" open>
+            <p className="dialog__message">X2pack</p>
+            <p className="dialog__detail">Travel pack-list manager</p>
+            <dl className="info-dialog__dl">
+              <dt>Version</dt><dd>{APP_VERSION}</dd>
+              <dt>Built</dt><dd>{new Date(BUILD_TIME).toLocaleString()}</dd>
+            </dl>
+            <div className="dialog__actions">
+              <button className="btn btn--primary dialog__btn" onClick={() => setShowInfo(false)}>Close</button>
+            </div>
+          </dialog>
+        </div>
+      )}
+
       {discardId != null && (
         <ConfirmDialog
           message="Discard this packing?"
@@ -108,9 +141,9 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
 }
 
 type PackingCardProps = {
-  packing: Packing;
-  onOpen: () => void;
-  onDiscard: () => void;
+  readonly packing: Packing;
+  readonly onOpen: () => void;
+  readonly onDiscard: () => void;
 };
 
 function PackingCard({ packing, onOpen, onDiscard }: PackingCardProps): React.ReactElement {

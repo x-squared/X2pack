@@ -18,6 +18,8 @@
 }
 
 .dialog {
+  border: none;
+  position: static;
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md), 0 16px 48px rgba(0, 0, 0, 0.18);

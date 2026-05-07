@@ -4,6 +4,7 @@ export type PackList = {
   items: readonly string[];
   referencedListIds: readonly string[];
   sortOrder?: number;
+  isMajor?: boolean;
   createdAt: string;
   updatedAt: string;
 };

@@ -24,9 +24,11 @@ type ParsedList = {
   name: string;
   items: string[];
   referencedListNames: string[];
+  isMajor: boolean;
 };
 
 const REFERENCE_PREFIX = 'include';
+const MAJOR_PREFIX = 'main';
 
 function parseMarkdown(markdown: string): ParsedList[] {
   const result: ParsedList[] = [];
@@ -37,7 +39,11 @@ function parseMarkdown(markdown: string): ParsedList[] {
 
     const headingMatch = /^#\s+(.+)$/.exec(line);
     if (headingMatch) {
-      current = { name: headingMatch[1]!, items: [], referencedListNames: [] };
+      const headingText = headingMatch[1]!;
+      const majorMatch = new RegExp(`^${MAJOR_PREFIX}:\\s+(.+)$`).exec(headingText);
+      const isMajor = majorMatch !== null;
+      const name = majorMatch ? majorMatch[1]! : headingText;
+      current = { name, items: [], referencedListNames: [], isMajor };
       result.push(current);
       continue;
     }
@@ -64,7 +70,8 @@ export function serializePackLists(lists: readonly PackList[]): string {
   const sections: string[] = [];
 
   for (const list of lists) {
-    const lines: string[] = [`# ${list.name}`, ''];
+    const heading = list.isMajor ? `# ${MAJOR_PREFIX}: ${list.name}` : `# ${list.name}`;
+    const lines: string[] = [heading, ''];
     for (const item of list.items) {
       lines.push(`- ${item}`);
     }
@@ -79,7 +86,7 @@ export function serializePackLists(lists: readonly PackList[]): string {
 }
 
 export type PackListImportEntry = {
-  data: { name: string; items: string[]; referencedListIds: string[] };
+  data: { name: string; items: string[]; referencedListIds: string[]; isMajor: boolean };
   id: string;
 };
 
@@ -96,13 +103,14 @@ export function resolveImport(
     }
   }
 
-  return parsed.map(({ name, items, referencedListNames }) => ({
+  return parsed.map(({ name, items, referencedListNames, isMajor }) => ({
     data: {
       name,
       items,
       referencedListIds: referencedListNames
         .map((n) => nameToId.get(n))
         .filter((id): id is string => id !== undefined),
+      isMajor,
     },
     id: nameToId.get(name)!,
   }));

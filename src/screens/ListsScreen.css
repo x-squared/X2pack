@@ -91,20 +91,33 @@
   overflow: hidden;
 }
 
+.lists-screen__item--major {
+  border: 2px solid rgba(0, 0, 0, 0.5);
+  border-left: 4px solid #000000;
+  background: var(--color-surface);
+}
+
+.lists-screen__item--major .lists-screen__item-name {
+  color: var(--color-text);
+  font-weight: var(--font-weight-bold);
+}
+
 /* ── Move buttons ───────────────────────────── */
 .lists-screen__move-btns {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  justify-content: center;
+  gap: 1px;
   flex-shrink: 0;
-  padding: var(--space-2) 0 var(--space-2) var(--space-2);
+  padding: 0 0 0 var(--space-2);
 }
 
 .lists-screen__move-btn {
   color: var(--color-muted);
-  font-size: 9px;
+  font-size: 27px;
   min-width: 24px;
-  min-height: 20px;
+  min-height: unset;
+  height: 18px;
   padding: 0;
   line-height: 1;
   border-radius: var(--radius-sm);
@@ -163,6 +176,29 @@
   font-size: 20px;
   color: var(--color-muted);
   line-height: 1;
+}
+
+/* Major toggle — sits between item row and delete button */
+.lists-screen__btn-major {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-height: 56px;
+  font-size: 18px;
+  color: var(--color-muted);
+  background: transparent;
+  cursor: pointer;
+  border-left: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+.lists-screen__btn-major--active {
+  color: var(--color-accent);
+}
+
+.lists-screen__btn-major:active {
+  background: var(--color-fill);
 }
 
 /* Destructive icon — sits outside the main tap target */

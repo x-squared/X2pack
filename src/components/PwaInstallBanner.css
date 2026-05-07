@@ -1,0 +1,95 @@
+.pwa-install-banner {
+  margin: 0 var(--space-4) var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid rgba(146, 64, 14, 0.20);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.pwa-install-banner__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.pwa-install-banner__title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+}
+
+.pwa-install-banner__dismiss {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  padding: 0;
+}
+
+.pwa-install-banner__dismiss:active {
+  background: var(--color-fill);
+}
+
+.pwa-install-banner__intro {
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+  margin-bottom: var(--space-3);
+  line-height: 1.5;
+}
+
+.pwa-install-banner__steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  counter-reset: steps;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pwa-install-banner__step {
+  counter-increment: steps;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.pwa-install-banner__note {
+  margin-top: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.pwa-install-banner__step::before {
+  content: counter(steps);
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+  background: rgba(146, 64, 14, 0.10);
+  border-radius: var(--radius-full);
+  line-height: 18px;
+  text-align: center;
+}

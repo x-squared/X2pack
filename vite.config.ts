@@ -4,6 +4,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: '/X2pack/',
+  define: {
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],

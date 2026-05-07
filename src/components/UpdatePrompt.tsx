@@ -8,8 +8,12 @@ export default function UpdatePrompt(): React.ReactElement | null {
   } = useRegisterSW({
     onRegistered(r: ServiceWorkerRegistration | undefined) {
       if (r) {
-        // Check for updates every 60 minutes
         setInterval(() => { r.update().catch(() => {}); }, 60 * 60 * 1000);
+        // iOS freezes JS when a PWA is backgrounded, so the interval above never
+        // advances. Check for updates every time the app returns to the foreground.
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') r.update().catch(() => {});
+        });
       }
     },
   });

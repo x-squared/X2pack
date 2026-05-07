@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getAllPackLists, deletePackList, isDependedUpon, updatePackListSortOrders, savePackList } from '../db/packLists.js';
+import { getAllPackLists, deletePackList, isDependedUpon, updatePackListSortOrders, savePackList, updatePackListMajor } from '../db/packLists.js';
 import type { PackList, Screen } from '../types/index.js';
 import ConfirmDialog from '../components/ConfirmDialog.js';
 import { downloadPackLists, resolveImport } from '../utils/packListsIO.js';
@@ -52,6 +52,12 @@ export default function ListsScreen({ onNavigate }: Props): React.ReactElement {
     await loadLists();
   }
 
+  async function handleToggleMajor(list: PackList): Promise<void> {
+    const isMajor = !list.isMajor;
+    await updatePackListMajor(list.id, isMajor);
+    setLists((prev) => prev.map((l) => (l.id === list.id ? { ...l, isMajor } : l)));
+  }
+
   async function handleMove(index: number, direction: 'up' | 'down'): Promise<void> {
     const target = direction === 'up' ? index - 1 : index + 1;
     if (target < 0 || target >= lists.length) return;
@@ -88,8 +94,14 @@ export default function ListsScreen({ onNavigate }: Props): React.ReactElement {
       return;
     }
 
-    for (const { data, id } of entries) {
-      await savePackList(data, id);
+    try {
+      for (const { data, id } of entries) {
+        await savePackList(data, id);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setDialog({ kind: 'info', message: 'Import failed', detail: `Could not save: ${message}` });
+      return;
     }
 
     await loadLists();
@@ -149,7 +161,7 @@ export default function ListsScreen({ onNavigate }: Props): React.ReactElement {
         ) : (
           <ul className="lists-screen__list">
             {lists.map((list, index) => (
-              <li key={list.id} className="lists-screen__item">
+              <li key={list.id} className={`lists-screen__item${list.isMajor ? ' lists-screen__item--major' : ''}`}>
                 <div className="lists-screen__move-btns">
                   <button
                     className="btn btn--icon lists-screen__move-btn"
@@ -181,6 +193,14 @@ export default function ListsScreen({ onNavigate }: Props): React.ReactElement {
                     )}
                   </div>
                   <span className="lists-screen__chevron" aria-hidden>›</span>
+                </button>
+                <button
+                  className={`lists-screen__btn-major${list.isMajor ? ' lists-screen__btn-major--active' : ''}`}
+                  onClick={() => void handleToggleMajor(list)}
+                  aria-label={list.isMajor ? `Unmark ${list.name} as major` : `Mark ${list.name} as major`}
+                  aria-pressed={list.isMajor ?? false}
+                >
+                  {list.isMajor ? '★' : '☆'}
                 </button>
                 <button
                   className="lists-screen__btn-delete"

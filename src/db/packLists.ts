@@ -13,7 +13,7 @@ export async function getPackList(id: string): Promise<PackList | undefined> {
 }
 
 export async function savePackList(
-  data: { name: string; items: readonly string[]; referencedListIds: readonly string[] },
+  data: { name: string; items: readonly string[]; referencedListIds: readonly string[]; isMajor?: boolean },
   existingId?: string,
 ): Promise<PackList> {
   const db = await getDb();
@@ -50,6 +50,12 @@ export async function updatePackListSortOrders(
     }),
   );
   await tx.done;
+}
+
+export async function updatePackListMajor(id: string, isMajor: boolean): Promise<void> {
+  const db = await getDb();
+  const list = await db.get('packLists', id);
+  if (list) await db.put('packLists', { ...list, isMajor });
 }
 
 export async function deletePackList(id: string): Promise<void> {
