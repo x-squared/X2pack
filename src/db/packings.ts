@@ -15,7 +15,8 @@ export async function getPacking(id: string): Promise<Packing | undefined> {
 
 export async function createPacking(
   name: string,
-  date: string,
+  fromDate: string,
+  toDate: string,
   packListIds: readonly string[],
 ): Promise<Packing> {
   const db = await getDb();
@@ -30,7 +31,8 @@ export async function createPacking(
   const packing: Packing = {
     id: uuidv4(),
     name,
-    date,
+    fromDate,
+    toDate,
     packListIds,
     items,
     status: 'active',
@@ -39,6 +41,26 @@ export async function createPacking(
   };
   await db.put('packings', packing);
   return packing;
+}
+
+export async function updatePackingMeta(
+  id: string,
+  name: string,
+  fromDate: string,
+  toDate: string,
+): Promise<Packing> {
+  const db = await getDb();
+  const packing = await db.get('packings', id);
+  if (!packing) throw new Error(`Packing ${id} not found`);
+  const updated: Packing = {
+    ...packing,
+    name,
+    fromDate,
+    toDate,
+    updatedAt: new Date().toISOString(),
+  };
+  await db.put('packings', updated);
+  return updated;
 }
 
 export async function updatePackingItem(

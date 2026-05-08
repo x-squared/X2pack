@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { addPackingItem, getPacking, updatePackingItem } from '../db/packings.js';
+import { addPackingItem, getPacking, updatePackingItem, updatePackingMeta } from '../db/packings.js';
 import { getPackList } from '../db/packLists.js';
 import type { Packing, PackingItem, PackingItemStatus, Screen } from '../types/index.js';
 import './PackingScreen.css';
 
 type Props = {
-  packingId: string;
-  onNavigate: (screen: Screen) => void;
+  readonly packingId: string;
+  readonly onNavigate: (screen: Screen) => void;
 };
 
 type GroupedItems = {
@@ -14,11 +14,64 @@ type GroupedItems = {
   items: Array<{ item: PackingItem; globalIndex: number }>;
 };
 
+function formatDateRange(from: string, to: string): string {
+  const fmt = (iso: string) =>
+    new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `${fmt(from)} – ${fmt(to)}`;
+}
+
+export function dayCount(from: string, to: string): number {
+  return (
+    Math.round(
+      (new Date(to + 'T00:00:00').getTime() - new Date(from + 'T00:00:00').getTime()) / 86400000,
+    )
+  );
+}
+
+function renderName(
+  name: string,
+  isDone: boolean,
+  editingName: boolean,
+  editName: string,
+  setEditName: (v: string) => void,
+  setEditingName: (v: boolean) => void,
+  handleSaveName: () => void,
+): React.ReactElement {
+  if (editingName) {
+    return (
+      <input
+        autoFocus
+        className="packing-screen__name-input"
+        value={editName}
+        onChange={(e) => setEditName(e.target.value)}
+        onBlur={handleSaveName}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') handleSaveName();
+          if (e.key === 'Escape') { setEditName(name); setEditingName(false); }
+        }}
+      />
+    );
+  }
+  if (isDone) {
+    return <span className="packing-screen__name">{name}</span>;
+  }
+  return (
+    <button
+      className="packing-screen__name packing-screen__name--editable"
+      onClick={() => { setEditName(name); setEditingName(true); }}
+    >
+      {name}
+    </button>
+  );
+}
+
 export default function PackingScreen({ packingId, onNavigate }: Props): React.ReactElement {
   const [packing, setPacking] = useState<Packing | null>(null);
   const [groups, setGroups] = useState<GroupedItems[]>([]);
   const [editingName, setEditingName] = useState(false);
-  const [editingDate, setEditingDate] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editFromDate, setEditFromDate] = useState('');
+  const [editToDate, setEditToDate] = useState('');
   const [newItemText, setNewItemText] = useState('');
   const newItemInputRef = useRef<HTMLInputElement>(null);
 
@@ -30,6 +83,9 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
     const p = await getPacking(packingId);
     if (!p) return;
     setPacking(p);
+    setEditName(p.name);
+    setEditFromDate(p.fromDate);
+    setEditToDate(p.toDate);
     await buildGroups(p);
   }
 
@@ -69,6 +125,7 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
     let next: PackingItemStatus;
     if (current === 'pending') next = 'packed';
     else if (current === 'packed') next = 'discarded';
+    else if (current === 'discarded') next = 'not_used';
     else next = 'pending';
 
     const updated = await updatePackingItem(packingId, globalIndex, next);
@@ -86,11 +143,31 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
     newItemInputRef.current?.focus();
   }
 
+  async function handleSaveName(): Promise<void> {
+    setEditingName(false);
+    const trimmed = editName.trim();
+    if (!trimmed || trimmed === packing!.name) return;
+    const updated = await updatePackingMeta(packingId, trimmed, packing!.fromDate, packing!.toDate);
+    setPacking(updated);
+    setEditName(trimmed);
+  }
+
+  async function handleSaveDates(from: string, to: string): Promise<void> {
+    if (!from || !to || to < from) return;
+    if (from === packing!.fromDate && to === packing!.toDate) return;
+    const updated = await updatePackingMeta(packingId, packing!.name, from, to);
+    setPacking(updated);
+  }
+
   if (!packing) return <div className="packing-screen"><p style={{ padding: 24 }}>Loading…</p></div>;
 
   const total = packing.items.length;
   const done = packing.items.filter((i) => i.status !== 'pending').length;
   const isDone = packing.status === 'done';
+
+  const displayFrom = isDone ? packing.fromDate : editFromDate;
+  const displayTo = isDone ? packing.toDate : editToDate;
+  const datesValid = !!displayFrom && !!displayTo && displayTo >= displayFrom;
 
   return (
     <div className="packing-screen">
@@ -103,8 +180,10 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
           ‹
         </button>
         <div className="packing-screen__header-info">
-          <span className="packing-screen__name">{packing.name}</span>
-          <span className="packing-screen__date">{packing.date}</span>
+          {renderName(packing.name, isDone, editingName, editName, setEditName, setEditingName, handleSaveName)}
+          {datesValid && (
+            <span className="packing-screen__date">{formatDateRange(displayFrom, displayTo)}</span>
+          )}
         </div>
         {isDone && <span className="packing-screen__done-badge">✓ Done</span>}
       </header>
@@ -119,6 +198,45 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
       <p className="packing-screen__counter">
         {done} of {total} items completed
       </p>
+
+      {!isDone && (
+        <div className="packing-screen__date-strip">
+          <div className="packing-screen__date-inputs">
+            <input
+              className="packing-screen__date-input"
+              type="date"
+              value={editFromDate}
+              onChange={(e) => {
+                setEditFromDate(e.target.value);
+                if (editToDate && e.target.value > editToDate) setEditToDate(e.target.value);
+              }}
+              onBlur={() => void handleSaveDates(editFromDate, editToDate)}
+            />
+            <span className="packing-screen__date-sep">→</span>
+            <input
+              className="packing-screen__date-input"
+              type="date"
+              value={editToDate}
+              min={editFromDate}
+              onChange={(e) => setEditToDate(e.target.value)}
+              onBlur={() => void handleSaveDates(editFromDate, editToDate)}
+            />
+          </div>
+          {datesValid && (
+            <p className="packing-screen__date-hint">
+              You are packing for a total of {dayCount(editFromDate, editToDate)}{' '}
+              {dayCount(editFromDate, editToDate) === 1 ? 'day' : 'days'}.
+            </p>
+          )}
+        </div>
+      )}
+
+      {isDone && datesValid && (
+        <p className="packing-screen__date-hint packing-screen__date-hint--done">
+          Packed for {dayCount(packing.fromDate, packing.toDate)}{' '}
+          {dayCount(packing.fromDate, packing.toDate) === 1 ? 'day' : 'days'}.
+        </p>
+      )}
 
       <main className="packing-screen__content">
         {isDone && (
@@ -169,9 +287,15 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
   );
 }
 
+function statusLabel(status: PackingItemStatus): string {
+  if (status === 'packed') return 'packed';
+  if (status === 'discarded') return 'skipped';
+  return 'not used';
+}
+
 type PackingItemRowProps = {
-  item: PackingItem;
-  onToggle: () => void;
+  readonly item: PackingItem;
+  readonly onToggle: () => void;
 };
 
 function PackingItemRow({ item, onToggle }: PackingItemRowProps): React.ReactElement {
@@ -188,11 +312,12 @@ function PackingItemRow({ item, onToggle }: PackingItemRowProps): React.ReactEle
           {item.status === 'pending' && '○'}
           {item.status === 'packed' && '✓'}
           {item.status === 'discarded' && '✕'}
+          {item.status === 'not_used' && '—'}
         </span>
         <span className="packing-screen__item-text">{item.text}</span>
         {item.status !== 'pending' && (
           <span className="packing-screen__item-status-label">
-            {item.status === 'packed' ? 'packed' : 'skipped'}
+            {statusLabel(item.status)}
           </span>
         )}
       </button>

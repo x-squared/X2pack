@@ -12,13 +12,18 @@ export default function NewPackingScreen({ onNavigate }: Props): React.ReactElem
   const today = new Date().toISOString().slice(0, 10);
   const [name, setName] = useState('');
   const [nameTouched, setNameTouched] = useState(false);
-  const [date, setDate] = useState(today);
+  const [fromDate, setFromDate] = useState(today);
+  const [toDate, setToDate] = useState(today);
   const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
   const [allLists, setAllLists] = useState<PackList[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const nameInvalid = nameTouched && !name.trim();
-  const canStart = !!name.trim() && selectedListIds.length > 0;
+  const datesValid = !!fromDate && !!toDate && toDate >= fromDate;
+  const tripDays = datesValid
+    ? Math.round((new Date(toDate + 'T00:00:00').getTime() - new Date(fromDate + 'T00:00:00').getTime()) / 86400000)
+    : null;
+  const canStart = !!name.trim() && selectedListIds.length > 0 && datesValid;
 
   useEffect(() => {
     void getAllPackLists().then((lists) =>
@@ -70,7 +75,7 @@ export default function NewPackingScreen({ onNavigate }: Props): React.ReactElem
       setError('Please select at least one pack list.');
       return;
     }
-    const packing = await createPacking(trimmedName, date, selectedListIds);
+    const packing = await createPacking(trimmedName, fromDate, toDate, selectedListIds);
     onNavigate({ id: 'packing', packingId: packing.id });
   }
 
@@ -106,16 +111,31 @@ export default function NewPackingScreen({ onNavigate }: Props): React.ReactElem
         </section>
 
         <section className="new-packing-screen__section">
-          <label className="new-packing-screen__label" htmlFor="packing-date">
-            Date
-          </label>
-          <input
-            id="packing-date"
-            className="new-packing-screen__input"
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
+          <span className="new-packing-screen__label">Dates</span>
+          <div className="new-packing-screen__date-row">
+            <input
+              className="new-packing-screen__input new-packing-screen__date-input"
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                if (toDate && e.target.value > toDate) setToDate(e.target.value);
+              }}
+            />
+            <span className="new-packing-screen__date-sep">→</span>
+            <input
+              className={`new-packing-screen__input new-packing-screen__date-input${toDate && toDate < fromDate ? ' new-packing-screen__input--error' : ''}`}
+              type="date"
+              value={toDate}
+              min={fromDate}
+              onChange={(e) => setToDate(e.target.value)}
+            />
+          </div>
+          {tripDays !== null && (
+            <p className="new-packing-screen__date-hint">
+              You are packing for a total of {tripDays} {tripDays === 1 ? 'day' : 'days'}.
+            </p>
+          )}
         </section>
 
         <section className="new-packing-screen__section">

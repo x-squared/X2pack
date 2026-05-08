@@ -10,7 +10,7 @@ type Props = {
   readonly onNavigate: (screen: Screen) => void;
 };
 
-const APP_VERSION = '0.1.1';
+const APP_VERSION = __APP_VERSION__;
 const BUILD_TIME = __BUILD_TIME__;
 
 export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
@@ -30,9 +30,7 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
   }, [showInfo]);
 
   async function loadPackings(): Promise<void> {
-    const all = await getAllPackings()
-    const sortedByCreatedAt = all.toSorted((a, b) => b.createdAt.localeCompare(a.createdAt));
-    setPackings(sortedByCreatedAt);
+    setPackings(await getAllPackings());
   }
 
   async function handleDiscardConfirm(): Promise<void> {
@@ -42,8 +40,12 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
     await loadPackings();
   }
 
-  const activePackings = packings.filter((p) => p.status === 'active');
-  const donePackings = packings.filter((p) => p.status === 'done');
+  const activePackings = packings
+    .filter((p) => p.status === 'active')
+    .toSorted((a, b) => a.fromDate.localeCompare(b.fromDate));
+  const donePackings = packings
+    .filter((p) => p.status === 'done')
+    .toSorted((a, b) => b.fromDate.localeCompare(a.fromDate));
 
   return (
     <div className="home-screen">
@@ -146,6 +148,12 @@ type PackingCardProps = {
   readonly onDiscard: () => void;
 };
 
+function formatDateRange(from: string, to: string): string {
+  const fmt = (iso: string) =>
+    new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return from === to ? fmt(from) : `${fmt(from)} – ${fmt(to)}`;
+}
+
 function PackingCard({ packing, onOpen, onDiscard }: PackingCardProps): React.ReactElement {
   const total = packing.items.length;
   const done = packing.items.filter((i) => i.status !== 'pending').length;
@@ -156,7 +164,7 @@ function PackingCard({ packing, onOpen, onDiscard }: PackingCardProps): React.Re
       <div className="packing-card__header">
         <div className="packing-card__info">
           <span className="packing-card__name">{packing.name}</span>
-          <span className="packing-card__date">{packing.date}</span>
+          <span className="packing-card__date">{formatDateRange(packing.fromDate, packing.toDate)}</span>
         </div>
         {isDone ? (
           <span className="packing-card__badge packing-card__badge--done">✓ Done</span>

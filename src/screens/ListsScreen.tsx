@@ -8,6 +8,7 @@ import './ListsScreen.css';
 
 type Props = {
   readonly onNavigate: (screen: Screen) => void;
+  readonly onBack: () => void;
 };
 
 type DialogState =
@@ -16,6 +17,27 @@ type DialogState =
   | { kind: 'confirm'; list: PackList }
   | { kind: 'info'; message: string; detail: string };
 
+const PENDING_PACK_LIST_SAVE_KEY = 'x2pack-pending-pack-list-save';
+
+type PendingPackListSave = {
+  name: string;
+  items: string[];
+  referencedListIds: string[];
+  existingId?: string;
+};
+
+function readPendingPackListSave(): string | null {
+  const storage = globalThis.localStorage;
+  if (!storage || typeof storage.getItem !== 'function') return null;
+  return storage.getItem(PENDING_PACK_LIST_SAVE_KEY);
+}
+
+function clearPendingPackListSave(): void {
+  const storage = globalThis.localStorage;
+  if (!storage || typeof storage.removeItem !== 'function') return;
+  storage.removeItem(PENDING_PACK_LIST_SAVE_KEY);
+}
+
 function sortedByOrder(lists: PackList[]): PackList[] {
   return lists.toSorted((a, b) => {
     const diff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
@@ -23,7 +45,7 @@ function sortedByOrder(lists: PackList[]): PackList[] {
   });
 }
 
-export default function ListsScreen({ onNavigate }: Props): React.ReactElement {
+export default function ListsScreen({ onNavigate, onBack }: Props): React.ReactElement {
   const [lists, setLists] = useState<PackList[]>([]);
   const [dialog, setDialog] = useState<DialogState>({ kind: 'none' });
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -33,8 +55,35 @@ export default function ListsScreen({ onNavigate }: Props): React.ReactElement {
   }, []);
 
   async function loadLists(): Promise<void> {
+    await flushPendingPackListSave();
     const all = await getAllPackLists();
     setLists(sortedByOrder(all));
+  }
+
+  async function flushPendingPackListSave(): Promise<void> {
+    const raw = readPendingPackListSave();
+    if (!raw) return;
+    try {
+      const pending = JSON.parse(raw) as PendingPackListSave;
+      if (!pending.name.trim()) {
+        clearPendingPackListSave();
+        return;
+      }
+      await Promise.race([
+        savePackList(
+          {
+            name: pending.name,
+            items: pending.items,
+            referencedListIds: pending.referencedListIds,
+          },
+          pending.existingId,
+        ),
+        new Promise<void>((resolve) => setTimeout(resolve, 1200)),
+      ]);
+      clearPendingPackListSave();
+    } catch {
+      // Keep pending payload for next retry.
+    }
   }
 
   function handleDelete(list: PackList): void {
@@ -117,7 +166,7 @@ export default function ListsScreen({ onNavigate }: Props): React.ReactElement {
       <header className="lists-screen__header">
         <button
           className="btn btn--back lists-screen__back-btn"
-          onClick={() => onNavigate({ id: 'home' })}
+          onClick={onBack}
           aria-label="Back"
         >
           ‹

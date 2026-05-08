@@ -11,11 +11,27 @@ import './EditPackListScreen.css';
 type Props = {
   readonly listId: string | null;
   readonly onNavigate: (screen: Screen) => void;
+  readonly onBack: () => void;
 };
+
+const PENDING_PACK_LIST_SAVE_KEY = 'x2pack-pending-pack-list-save';
+
+function setPendingPackListSave(value: string): void {
+  const storage = globalThis.localStorage;
+  if (!storage || typeof storage.setItem !== 'function') return;
+  storage.setItem(PENDING_PACK_LIST_SAVE_KEY, value);
+}
+
+function clearPendingPackListSave(): void {
+  const storage = globalThis.localStorage;
+  if (!storage || typeof storage.removeItem !== 'function') return;
+  storage.removeItem(PENDING_PACK_LIST_SAVE_KEY);
+}
 
 export default function EditPackListScreen({
   listId,
   onNavigate,
+  onBack,
 }: Props): React.ReactElement {
   const [name, setName] = useState('');
   const [nameTouched, setNameTouched] = useState(false);
@@ -25,12 +41,21 @@ export default function EditPackListScreen({
   const [referencedListIds, setReferencedListIds] = useState<string[]>([]);
   const [allLists, setAllLists] = useState<PackList[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [savedVisible, setSavedVisible] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const newItemRef = useRef<HTMLInputElement>(null);
   const effectiveIdRef = useRef<string | null>(listId);
   const dirtyRef = useRef(false);
+  const backTriggeredRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentSaveRef = useRef<Promise<void> | null>(null);
+  const itemKeysRef = useRef<string[]>([]);
+  const keyCounterRef = useRef(0);
+
+  function nextKey(): string {
+    keyCounterRef.current += 1;
+    return String(keyCounterRef.current);
+  }
 
   const isNew = listId === null;
   const nameInvalid = nameTouched && !name.trim();
@@ -46,6 +71,7 @@ export default function EditPackListScreen({
       const existing = await getPackList(listId);
       if (existing) {
         dirtyRef.current = false;
+        itemKeysRef.current = existing.items.map(() => nextKey());
         setName(existing.name);
         setItems([...existing.items]);
         setReferencedListIds([...existing.referencedListIds]);
@@ -71,29 +97,66 @@ export default function EditPackListScreen({
     }
 
     setError(null);
-    try {
-      const saved = await savePackList(
-        { name: trimmedName, items, referencedListIds },
-        effectiveIdRef.current ?? undefined,
-      );
-      effectiveIdRef.current = saved.id;
-      dirtyRef.current = false;
-      setSavedVisible(true);
-      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
-      savedTimerRef.current = setTimeout(() => setSavedVisible(false), 1500);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setError(`Could not save. ${message}`);
-    }
+    setSaveStatus('saving');
+    const work = async (): Promise<void> => {
+      try {
+        const saved = await savePackList(
+          { name: trimmedName, items, referencedListIds },
+          effectiveIdRef.current ?? undefined,
+        );
+        effectiveIdRef.current = saved.id;
+        dirtyRef.current = false;
+        setSaveStatus('saved');
+        if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+        savedTimerRef.current = setTimeout(() => setSaveStatus('idle'), 1500);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        setError(`Could not save. ${message}`);
+        setSaveStatus('idle');
+      } finally {
+        currentSaveRef.current = null;
+      }
+    };
+    const p = work();
+    currentSaveRef.current = p;
+    await p;
   }
 
   async function handleBack(): Promise<void> {
+    if (backTriggeredRef.current) return;
+    backTriggeredRef.current = true;
+
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
     }
-    if (dirtyRef.current) await doSave();
-    onNavigate({ id: 'lists' });
+
+    if (currentSaveRef.current) {
+      setSaveStatus('saving');
+      await currentSaveRef.current;
+    } else if (dirtyRef.current && name.trim()) {
+      const payload = {
+        name: name.trim(),
+        items: [...items],
+        referencedListIds: [...referencedListIds],
+        existingId: effectiveIdRef.current ?? undefined,
+      };
+      setPendingPackListSave(JSON.stringify(payload));
+      setSaveStatus('saving');
+      try {
+        const saved = await savePackList(
+          { name: payload.name, items: payload.items, referencedListIds: payload.referencedListIds },
+          payload.existingId,
+        );
+        effectiveIdRef.current = saved.id;
+        dirtyRef.current = false;
+        clearPendingPackListSave();
+      } catch (err) {
+        console.warn('[edit-list] save on back failed — localStorage fallback in place', err);
+        // localStorage payload remains as fallback for ListsScreen.flushPendingPackListSave
+      }
+    }
+    onBack();
   }
 
   function markDirty(): void {
@@ -104,6 +167,7 @@ export default function EditPackListScreen({
     const trimmed = newItemText.trim();
     if (!trimmed) return;
     markDirty();
+    itemKeysRef.current = [...itemKeysRef.current, nextKey()];
     setItems((prev) => [...prev, trimmed]);
     setNewItemText('');
     newItemRef.current?.focus();
@@ -116,6 +180,7 @@ export default function EditPackListScreen({
 
   function handleRemoveItem(index: number): void {
     markDirty();
+    itemKeysRef.current = itemKeysRef.current.filter((_, i) => i !== index);
     setItems((prev) => prev.filter((_, i) => i !== index));
     setEditingIndex(null);
   }
@@ -164,11 +229,12 @@ export default function EditPackListScreen({
     if (index === 0) return;
     markDirty();
     setEditingIndex(null);
+    const keys = [...itemKeysRef.current];
+    [keys[index - 1], keys[index]] = [keys[index] as string, keys[index - 1] as string];
+    itemKeysRef.current = keys;
     setItems((prev) => {
       const next = [...prev];
-      const tmp = next[index - 1] as string;
-      next[index - 1] = next[index] as string;
-      next[index] = tmp;
+      [next[index - 1], next[index]] = [next[index] as string, next[index - 1] as string];
       return next;
     });
   }
@@ -176,12 +242,15 @@ export default function EditPackListScreen({
   function handleMoveDown(index: number): void {
     markDirty();
     setEditingIndex(null);
+    if (index < itemKeysRef.current.length - 1) {
+      const keys = [...itemKeysRef.current];
+      [keys[index], keys[index + 1]] = [keys[index + 1] as string, keys[index] as string];
+      itemKeysRef.current = keys;
+    }
     setItems((prev) => {
-      if (index === prev.length - 1) return prev;
+      if (index >= prev.length - 1) return prev;
       const next = [...prev];
-      const tmp = next[index] as string;
-      next[index] = next[index + 1] as string;
-      next[index + 1] = tmp;
+      [next[index], next[index + 1]] = [next[index + 1] as string, next[index] as string];
       return next;
     });
   }
@@ -198,14 +267,19 @@ export default function EditPackListScreen({
     <div className="edit-list-screen">
       <header className="edit-list-screen__header">
         <button
-          className="btn btn--back"
+          type="button"
+          className="btn btn--back edit-list-screen__back-btn"
           onClick={() => void handleBack()}
+          onPointerDown={(event) => {
+            if (event.pointerType === 'touch') void handleBack();
+          }}
           aria-label="Back"
         >
           ‹
         </button>
         <h1 className="edit-list-screen__header-title">{isNew ? 'New List' : 'Edit List'}</h1>
-        {savedVisible && <span className="edit-list-screen__saved-indicator">Saved</span>}
+        {saveStatus === 'saving' && <span className="edit-list-screen__saving-indicator">Saving…</span>}
+        {saveStatus === 'saved' && <span className="edit-list-screen__saved-indicator">Saved</span>}
       </header>
 
       <main className="edit-list-screen__content">
@@ -277,7 +351,7 @@ export default function EditPackListScreen({
           <ul className="edit-list-screen__items">
             {items.map((item, index) => (
               <li
-                key={item}
+                key={itemKeysRef.current[index] ?? index}
                 className="edit-list-screen__item"
               >
                 <div className="edit-list-screen__move-btns">

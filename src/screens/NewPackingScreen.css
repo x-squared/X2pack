@@ -85,6 +85,29 @@
   appearance: none;
 }
 
+.new-packing-screen__date-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.new-packing-screen__date-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.new-packing-screen__date-sep {
+  flex-shrink: 0;
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+.new-packing-screen__date-hint {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+}
+
 .new-packing-screen__input:focus {
   outline: none;
   border-color: rgba(0, 0, 0, 0.4);

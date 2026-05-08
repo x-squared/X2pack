@@ -50,23 +50,18 @@
 }
 
 .pwa-install-banner__steps {
-  list-style: none;
-  padding: 0;
+  padding-left: 1.4em;
   margin: 0;
-  counter-reset: steps;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
 }
 
 .pwa-install-banner__step {
-  counter-increment: steps;
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
   font-size: var(--font-size-sm);
   color: var(--color-text);
   line-height: 1.5;
+}
+
+.pwa-install-banner__step + .pwa-install-banner__step {
+  margin-top: var(--space-2);
 }
 
 .pwa-install-banner__note {
@@ -75,21 +70,4 @@
   color: var(--color-muted);
   font-style: italic;
   line-height: 1.5;
-}
-
-.pwa-install-banner__step::before {
-  content: counter(steps);
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: var(--font-weight-bold);
-  color: var(--color-accent);
-  background: rgba(146, 64, 14, 0.10);
-  border-radius: var(--radius-full);
-  line-height: 18px;
-  text-align: center;
 }

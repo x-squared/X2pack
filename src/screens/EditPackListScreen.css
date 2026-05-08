@@ -35,6 +35,12 @@
   text-overflow: ellipsis;
 }
 
+.edit-list-screen__back-btn {
+  position: relative;
+  z-index: 2;
+  touch-action: manipulation;
+}
+
 .edit-list-screen__content {
   flex: 1;
   padding: var(--space-4);
@@ -42,11 +48,21 @@
   overflow-y: auto;
 }
 
-/* ── Saved indicator ────────────────────────── */
-.edit-list-screen__saved-indicator {
+/* ── Save status indicators ─────────────────── */
+.edit-list-screen__saved-indicator,
+.edit-list-screen__saving-indicator {
   font-size: var(--font-size-sm);
   color: var(--color-muted);
   flex-shrink: 0;
+}
+
+@keyframes edit-list-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.edit-list-screen__saving-indicator {
+  animation: edit-list-pulse 1.2s ease-in-out infinite;
 }
 
 .edit-list-screen__error {

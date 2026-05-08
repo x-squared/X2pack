@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { Screen } from './types/index.js';
 import HomeScreen from './screens/HomeScreen.js';
 import ListsScreen from './screens/ListsScreen.js';
@@ -9,19 +9,31 @@ import UpdatePrompt from './components/UpdatePrompt.js';
 import './App.css';
 
 export default function App(): React.ReactElement {
-  const [screen, setScreen] = useState<Screen>({ id: 'home' });
+  const [history, setHistory] = useState<Screen[]>([{ id: 'home' }]);
+  const screen = useMemo(() => history.at(-1) ?? ({ id: 'home' } as Screen), [history]);
+
+  const navigate = useCallback((next: Screen): void => {
+    setHistory((prev) => [...prev, next]);
+  }, []);
+
+  const goBack = useCallback((): void => {
+    setHistory((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.slice(0, -1);
+    });
+  }, []);
 
   return (
     <>
       <UpdatePrompt />
-      {screen.id === 'home' && <HomeScreen onNavigate={setScreen} />}
-      {screen.id === 'lists' && <ListsScreen onNavigate={setScreen} />}
+      {screen.id === 'home' && <HomeScreen onNavigate={navigate} />}
+      {screen.id === 'lists' && <ListsScreen onNavigate={navigate} onBack={goBack} />}
       {screen.id === 'edit-pack-list' && (
-        <EditPackListScreen listId={screen.listId} onNavigate={setScreen} />
+        <EditPackListScreen listId={screen.listId} onNavigate={navigate} onBack={goBack} />
       )}
-      {screen.id === 'new-packing' && <NewPackingScreen onNavigate={setScreen} />}
+      {screen.id === 'new-packing' && <NewPackingScreen onNavigate={navigate} />}
       {screen.id === 'packing' && (
-        <PackingScreen packingId={screen.packingId} onNavigate={setScreen} />
+        <PackingScreen packingId={screen.packingId} onNavigate={navigate} />
       )}
     </>
   );

@@ -9,7 +9,7 @@ export type PackList = {
   updatedAt: string;
 };
 
-export type PackingItemStatus = 'pending' | 'packed' | 'discarded';
+export type PackingItemStatus = 'pending' | 'packed' | 'discarded' | 'not_used';
 
 export type PackingItem = {
   listId: string;
@@ -22,7 +22,8 @@ export type PackingStatus = 'active' | 'done';
 export type Packing = {
   id: string;
   name: string;
-  date: string;
+  fromDate: string;
+  toDate: string;
   packListIds: readonly string[];
   items: readonly PackingItem[];
   status: PackingStatus;
