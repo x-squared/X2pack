@@ -1,0 +1,9 @@
+# Browser Debugging
+
+## When something isn't working in the browser and the cause isn't immediately obvious
+
+1. **Clear all site data first** — DevTools → Application → Storage → Clear site data (especially IndexedDB). Stale cached data or a corrupted DB is often the real culprit.
+2. **Add targeted logging** — place `console.info`/`console.warn` at key flow points to surface what's actually happening at runtime.
+3. **Only then dig into code analysis** — if logging doesn't reveal the cause, do a deeper walkthrough.
+
+Avoid long static analysis of browser/IDB issues before clearing storage and checking logs first — it wastes time when the ground truth is a stale cache.
