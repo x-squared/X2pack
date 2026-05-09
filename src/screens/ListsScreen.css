@@ -102,35 +102,6 @@
   font-weight: var(--font-weight-bold);
 }
 
-/* ── Move buttons ───────────────────────────── */
-.lists-screen__move-btns {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 1px;
-  flex-shrink: 0;
-  padding: 0 0 0 var(--space-2);
-}
-
-.lists-screen__move-btn {
-  color: var(--color-muted);
-  font-size: 27px;
-  min-width: 24px;
-  min-height: unset;
-  height: 18px;
-  padding: 0;
-  line-height: 1;
-  border-radius: var(--radius-sm);
-}
-
-.lists-screen__move-btn:active {
-  background: var(--color-fill);
-}
-
-.lists-screen__move-btn:disabled {
-  opacity: 0.20;
-}
-
 /* Full-width tappable row — same visual weight as packing item rows */
 .lists-screen__item-row {
   flex: 1;

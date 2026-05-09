@@ -32,6 +32,7 @@ export async function savePackList(
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
     sortOrder,
+    ...(existing?.isMajor === undefined ? {} : { isMajor: existing.isMajor }),
     ...data,
   };
   await db.put('packLists', list);

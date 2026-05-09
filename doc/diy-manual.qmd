@@ -5,6 +5,32 @@ toc: true
 toc-depth: 3
 ---
 
+------------------------------------------------------------------------
+
+## Project structure
+
+```         
+X2pack/
+├── .cursor/rules/      Cursor coding rules (copies of dev/rules/)
+├── dev/
+│   ├── plans/          Implementation plan documents
+│   └── rules/          Coding rules (.mdc files)
+├── doc/                This manual and other documentation
+├── dist/               Production build output (git-ignored)
+├── public/             Static assets (icons, favicon)
+└── src/
+    ├── components/     Shared UI components (UpdatePrompt)
+    ├── db/             IndexedDB access layer
+    ├── screens/        One file per screen + sibling .css
+    ├── styles/         tokens.css, base.css
+    ├── types/          index.ts — all shared TypeScript types
+    ├── icon-source.svg Source artwork for all app icons
+    ├── App.tsx         Screen state machine
+    └── main.tsx        Entry point
+```
+
+------------------------------------------------------------------------
+
 ## Quick start
 
 ### First-time setup
@@ -38,32 +64,6 @@ cloudflared tunnel --url http://localhost:5173
 ```
 
 > The tunnel URL changes every time you restart `cloudflared`. Install from a tunnel only for development testing — not for everyday use.
-
-------------------------------------------------------------------------
-
-## Project structure
-
-```         
-X2pack/
-├── .cursor/rules/      Cursor coding rules (copies of dev/rules/)
-├── dev/
-│   ├── plans/          Implementation plan documents
-│   └── rules/          Coding rules (.mdc files)
-├── doc/                This manual and other documentation
-├── dist/               Production build output (git-ignored)
-├── public/             Static assets (icons, favicon)
-└── src/
-    ├── components/     Shared UI components (UpdatePrompt)
-    ├── db/             IndexedDB access layer
-    ├── screens/        One file per screen + sibling .css
-    ├── styles/         tokens.css, base.css
-    ├── types/          index.ts — all shared TypeScript types
-    ├── icon-source.svg Source artwork for all app icons
-    ├── App.tsx         Screen state machine
-    └── main.tsx        Entry point
-```
-
-------------------------------------------------------------------------
 
 ## Install on iPhone as a home-screen app
 

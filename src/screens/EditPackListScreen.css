@@ -185,34 +185,6 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* ── Move buttons ───────────────────────────── */
-.edit-list-screen__move-btns {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 1px;
-  flex-shrink: 0;
-}
-
-.edit-list-screen__move-btn {
-  color: var(--color-muted);
-  font-size: 24px;
-  min-width: 24px;
-  min-height: unset;
-  height: 16px;
-  padding: 0;
-  line-height: 1;
-  border-radius: var(--radius-sm);
-}
-
-.edit-list-screen__move-btn:active {
-  background: var(--color-fill);
-}
-
-.edit-list-screen__move-btn:disabled {
-  opacity: 0.20;
-}
-
 /* ── Item text (display mode — tap to edit) ─── */
 .edit-list-screen__item-text {
   flex: 1;

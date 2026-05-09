@@ -3,6 +3,10 @@ import { getAllPackLists, deletePackList, isDependedUpon, updatePackListSortOrde
 import type { PackList, Screen } from '../types/index.js';
 import ConfirmDialog from '../components/ConfirmDialog.js';
 import { downloadPackLists, resolveImport } from '../utils/packListsIO.js';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import '../components/ConfirmDialog.css';
 import './ListsScreen.css';
 
@@ -38,6 +42,32 @@ function clearPendingPackListSave(): void {
   storage.removeItem(PENDING_PACK_LIST_SAVE_KEY);
 }
 
+async function flushPendingPackListSave(): Promise<void> {
+  const raw = readPendingPackListSave();
+  if (!raw) return;
+  try {
+    const pending = JSON.parse(raw) as PendingPackListSave;
+    if (!pending.name.trim()) {
+      clearPendingPackListSave();
+      return;
+    }
+    await Promise.race([
+      savePackList(
+        {
+          name: pending.name,
+          items: pending.items,
+          referencedListIds: pending.referencedListIds,
+        },
+        pending.existingId,
+      ),
+      new Promise<void>((resolve) => setTimeout(resolve, 1200)),
+    ]);
+    clearPendingPackListSave();
+  } catch {
+    // Keep pending payload for next retry.
+  }
+}
+
 function sortedByOrder(lists: PackList[]): PackList[] {
   return lists.toSorted((a, b) => {
     const diff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
@@ -45,10 +75,67 @@ function sortedByOrder(lists: PackList[]): PackList[] {
   });
 }
 
+type SortableListRowProps = {
+  readonly list: PackList;
+  readonly onNavigate: (screen: Screen) => void;
+  readonly onToggleMajor: (list: PackList) => void;
+  readonly onDelete: (list: PackList) => void;
+};
+
+function SortableListRow({ list, onNavigate, onToggleMajor, onDelete }: SortableListRowProps): React.ReactElement {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: list.id });
+  return (
+    <li
+      ref={setNodeRef}
+      style={{ transform: transform ? CSS.Transform.toString(transform) : undefined, transition, opacity: isDragging ? 0.4 : undefined }}
+      className={`lists-screen__item${list.isMajor ? ' lists-screen__item--major' : ''}`}
+    >
+      <span className="drag-handle" {...attributes} {...listeners} aria-label="Drag to reorder">⠿</span>
+      <button
+        className="lists-screen__item-row"
+        onClick={() => onNavigate({ id: 'edit-pack-list', listId: list.id })}
+      >
+        <div className="lists-screen__item-info">
+          <span className="lists-screen__item-name">{list.name}</span>
+          {(list.items.length > 0 || list.referencedListIds.length > 0) && (
+            <span className="lists-screen__item-meta">
+              {list.items.length > 0 &&
+                `${list.items.length} item${list.items.length === 1 ? '' : 's'}`}
+              {list.items.length > 0 && list.referencedListIds.length > 0 && ' · '}
+              {list.referencedListIds.length > 0 &&
+                `${list.referencedListIds.length} ref${list.referencedListIds.length === 1 ? '' : 's'}`}
+            </span>
+          )}
+        </div>
+        <span className="lists-screen__chevron" aria-hidden>›</span>
+      </button>
+      <button
+        className={`lists-screen__btn-major${list.isMajor ? ' lists-screen__btn-major--active' : ''}`}
+        onClick={() => onToggleMajor(list)}
+        aria-label={list.isMajor ? `Unmark ${list.name} as major` : `Mark ${list.name} as major`}
+        aria-pressed={list.isMajor ?? false}
+      >
+        {list.isMajor ? '★' : '☆'}
+      </button>
+      <button
+        className="lists-screen__btn-delete"
+        onClick={() => onDelete(list)}
+        aria-label={`Delete ${list.name}`}
+      >
+        ✕
+      </button>
+    </li>
+  );
+}
+
 export default function ListsScreen({ onNavigate, onBack }: Props): React.ReactElement {
   const [lists, setLists] = useState<PackList[]>([]);
   const [dialog, setDialog] = useState<DialogState>({ kind: 'none' });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
 
   useEffect(() => {
     void loadLists();
@@ -58,32 +145,6 @@ export default function ListsScreen({ onNavigate, onBack }: Props): React.ReactE
     await flushPendingPackListSave();
     const all = await getAllPackLists();
     setLists(sortedByOrder(all));
-  }
-
-  async function flushPendingPackListSave(): Promise<void> {
-    const raw = readPendingPackListSave();
-    if (!raw) return;
-    try {
-      const pending = JSON.parse(raw) as PendingPackListSave;
-      if (!pending.name.trim()) {
-        clearPendingPackListSave();
-        return;
-      }
-      await Promise.race([
-        savePackList(
-          {
-            name: pending.name,
-            items: pending.items,
-            referencedListIds: pending.referencedListIds,
-          },
-          pending.existingId,
-        ),
-        new Promise<void>((resolve) => setTimeout(resolve, 1200)),
-      ]);
-      clearPendingPackListSave();
-    } catch {
-      // Keep pending payload for next retry.
-    }
   }
 
   function handleDelete(list: PackList): void {
@@ -107,13 +168,13 @@ export default function ListsScreen({ onNavigate, onBack }: Props): React.ReactE
     setLists((prev) => prev.map((l) => (l.id === list.id ? { ...l, isMajor } : l)));
   }
 
-  async function handleMove(index: number, direction: 'up' | 'down'): Promise<void> {
-    const target = direction === 'up' ? index - 1 : index + 1;
-    if (target < 0 || target >= lists.length) return;
-    const reordered = [...lists];
-    const tmp = reordered[index]!;
-    reordered[index] = reordered[target]!;
-    reordered[target] = tmp;
+  async function handleDragEnd(event: DragEndEvent): Promise<void> {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = lists.findIndex((l) => l.id === active.id);
+    const newIndex = lists.findIndex((l) => l.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(lists, oldIndex, newIndex);
     setLists(reordered);
     await updatePackListSortOrders(reordered.map((l, i) => ({ id: l.id, sortOrder: i * 10 })));
   }
@@ -208,59 +269,21 @@ export default function ListsScreen({ onNavigate, onBack }: Props): React.ReactE
             No lists yet. Tap <strong>+</strong> to create your first pack list.
           </p>
         ) : (
-          <ul className="lists-screen__list">
-            {lists.map((list, index) => (
-              <li key={list.id} className={`lists-screen__item${list.isMajor ? ' lists-screen__item--major' : ''}`}>
-                <div className="lists-screen__move-btns">
-                  <button
-                    className="btn btn--icon lists-screen__move-btn"
-                    onClick={() => void handleMove(index, 'up')}
-                    disabled={index === 0}
-                    aria-label="Move up"
-                  >▲</button>
-                  <button
-                    className="btn btn--icon lists-screen__move-btn"
-                    onClick={() => void handleMove(index, 'down')}
-                    disabled={index === lists.length - 1}
-                    aria-label="Move down"
-                  >▼</button>
-                </div>
-                <button
-                  className="lists-screen__item-row"
-                  onClick={() => onNavigate({ id: 'edit-pack-list', listId: list.id })}
-                >
-                  <div className="lists-screen__item-info">
-                    <span className="lists-screen__item-name">{list.name}</span>
-                    {(list.items.length > 0 || list.referencedListIds.length > 0) && (
-                      <span className="lists-screen__item-meta">
-                        {list.items.length > 0 &&
-                          `${list.items.length} item${list.items.length === 1 ? '' : 's'}`}
-                        {list.items.length > 0 && list.referencedListIds.length > 0 && ' · '}
-                        {list.referencedListIds.length > 0 &&
-                          `${list.referencedListIds.length} ref${list.referencedListIds.length === 1 ? '' : 's'}`}
-                      </span>
-                    )}
-                  </div>
-                  <span className="lists-screen__chevron" aria-hidden>›</span>
-                </button>
-                <button
-                  className={`lists-screen__btn-major${list.isMajor ? ' lists-screen__btn-major--active' : ''}`}
-                  onClick={() => void handleToggleMajor(list)}
-                  aria-label={list.isMajor ? `Unmark ${list.name} as major` : `Mark ${list.name} as major`}
-                  aria-pressed={list.isMajor ?? false}
-                >
-                  {list.isMajor ? '★' : '☆'}
-                </button>
-                <button
-                  className="lists-screen__btn-delete"
-                  onClick={() => handleDelete(list)}
-                  aria-label={`Delete ${list.name}`}
-                >
-                  ✕
-                </button>
-              </li>
-            ))}
-          </ul>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void handleDragEnd(e)}>
+            <SortableContext items={lists.map((l) => l.id)} strategy={verticalListSortingStrategy}>
+              <ul className="lists-screen__list">
+                {lists.map((list) => (
+                  <SortableListRow
+                    key={list.id}
+                    list={list}
+                    onNavigate={onNavigate}
+                    onToggleMajor={handleToggleMajor}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </ul>
+            </SortableContext>
+          </DndContext>
         )}
       </main>
 

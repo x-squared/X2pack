@@ -6,6 +6,10 @@ import {
   hasCircularReference,
 } from '../db/packLists.js';
 import type { PackList, Screen } from '../types/index.js';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import './EditPackListScreen.css';
 
 type Props = {
@@ -26,6 +30,84 @@ function clearPendingPackListSave(): void {
   const storage = globalThis.localStorage;
   if (!storage || typeof storage.removeItem !== 'function') return;
   storage.removeItem(PENDING_PACK_LIST_SAVE_KEY);
+}
+
+type SortableItemRowProps = {
+  readonly itemKey: string;
+  readonly item: string;
+  readonly index: number;
+  readonly isEditing: boolean;
+  readonly onEditCommit: (index: number, value: string) => void;
+  readonly onSetEditingIndex: (index: number | null) => void;
+  readonly onRemove: (index: number) => void;
+};
+
+function SortableItemRow({ itemKey, item, index, isEditing, onEditCommit, onSetEditingIndex, onRemove }: SortableItemRowProps): React.ReactElement {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: itemKey });
+  return (
+    <li
+      ref={setNodeRef}
+      style={{ transform: transform ? CSS.Transform.toString(transform) : undefined, transition, opacity: isDragging ? 0.4 : undefined }}
+      className="edit-list-screen__item"
+    >
+      <span className="drag-handle" {...attributes} {...listeners} aria-label="Drag to reorder">⠿</span>
+      {isEditing ? (
+        <input
+          // eslint-disable-next-line jsx-a11y/no-autofocus
+          autoFocus
+          className="edit-list-screen__item-input edit-list-screen__item-input--editing"
+          type="text"
+          defaultValue={item}
+          onBlur={(e) => onEditCommit(index, e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+            if (e.key === 'Escape') onSetEditingIndex(null);
+          }}
+        />
+      ) : (
+        <button
+          className="edit-list-screen__item-text"
+          onClick={() => onSetEditingIndex(index)}
+          aria-label={`Edit ${item}`}
+        >
+          {item}
+        </button>
+      )}
+      <button
+        className="btn btn--icon edit-list-screen__remove-btn"
+        onClick={() => onRemove(index)}
+        aria-label={`Remove ${item}`}
+      >
+        ✕
+      </button>
+    </li>
+  );
+}
+
+type SortableRefRowProps = {
+  readonly list: PackList;
+  readonly onRemove: (id: string) => void;
+};
+
+function SortableRefRow({ list, onRemove }: SortableRefRowProps): React.ReactElement {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: list.id });
+  return (
+    <li
+      ref={setNodeRef}
+      style={{ transform: transform ? CSS.Transform.toString(transform) : undefined, transition, opacity: isDragging ? 0.4 : undefined }}
+      className="edit-list-screen__ref-item edit-list-screen__ref-item--included"
+    >
+      <span className="drag-handle" {...attributes} {...listeners} aria-label="Drag to reorder">⠿</span>
+      <label className="edit-list-screen__checkbox-label">
+        <input
+          type="checkbox"
+          checked={true}
+          onChange={() => onRemove(list.id)}
+        />
+        {list.name}
+      </label>
+    </li>
+  );
 }
 
 export default function EditPackListScreen({
@@ -51,6 +133,10 @@ export default function EditPackListScreen({
   const currentSaveRef = useRef<Promise<void> | null>(null);
   const itemKeysRef = useRef<string[]>([]);
   const keyCounterRef = useRef(0);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
 
   function nextKey(): string {
     keyCounterRef.current += 1;
@@ -201,58 +287,26 @@ export default function EditPackListScreen({
     setReferencedListIds((prev) => prev.filter((r) => r !== id));
   }
 
-  function handleMoveRefUp(index: number): void {
-    if (index === 0) return;
-    markDirty();
-    setReferencedListIds((prev) => {
-      const next = [...prev];
-      const tmp = next[index - 1] as string;
-      next[index - 1] = next[index] as string;
-      next[index] = tmp;
-      return next;
-    });
-  }
-
-  function handleMoveRefDown(index: number): void {
-    markDirty();
-    setReferencedListIds((prev) => {
-      if (index >= prev.length - 1) return prev;
-      const next = [...prev];
-      const tmp = next[index] as string;
-      next[index] = next[index + 1] as string;
-      next[index + 1] = tmp;
-      return next;
-    });
-  }
-
-  function handleMoveUp(index: number): void {
-    if (index === 0) return;
+  function handleItemsDragEnd(event: DragEndEvent): void {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = itemKeysRef.current.indexOf(String(active.id));
+    const newIndex = itemKeysRef.current.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
     markDirty();
     setEditingIndex(null);
-    const keys = [...itemKeysRef.current];
-    [keys[index - 1], keys[index]] = [keys[index] as string, keys[index - 1] as string];
-    itemKeysRef.current = keys;
-    setItems((prev) => {
-      const next = [...prev];
-      [next[index - 1], next[index]] = [next[index] as string, next[index - 1] as string];
-      return next;
-    });
+    itemKeysRef.current = arrayMove(itemKeysRef.current, oldIndex, newIndex);
+    setItems((prev) => arrayMove(prev, oldIndex, newIndex));
   }
 
-  function handleMoveDown(index: number): void {
+  function handleRefsDragEnd(event: DragEndEvent): void {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = referencedListIds.indexOf(String(active.id));
+    const newIndex = referencedListIds.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
     markDirty();
-    setEditingIndex(null);
-    if (index < itemKeysRef.current.length - 1) {
-      const keys = [...itemKeysRef.current];
-      [keys[index], keys[index + 1]] = [keys[index + 1] as string, keys[index] as string];
-      itemKeysRef.current = keys;
-    }
-    setItems((prev) => {
-      if (index >= prev.length - 1) return prev;
-      const next = [...prev];
-      [next[index], next[index + 1]] = [next[index + 1] as string, next[index] as string];
-      return next;
-    });
+    setReferencedListIds((prev) => arrayMove(prev, oldIndex, newIndex));
   }
 
   const candidatesForReference = allLists.filter((l) => l.id !== listId);
@@ -303,107 +357,50 @@ export default function EditPackListScreen({
         {candidatesForReference.length > 0 && (
           <section className="edit-list-screen__section">
             <h2 className="edit-list-screen__label">Include other lists</h2>
-            <ul className="edit-list-screen__ref-list">
-              {includedRefs.map((l, index) => (
-                <li key={l.id} className="edit-list-screen__ref-item edit-list-screen__ref-item--included">
-                  <div className="edit-list-screen__move-btns">
-                    <button
-                      className="btn btn--icon edit-list-screen__move-btn"
-                      onClick={() => handleMoveRefUp(index)}
-                      disabled={index === 0}
-                      aria-label="Move up"
-                    >▲</button>
-                    <button
-                      className="btn btn--icon edit-list-screen__move-btn"
-                      onClick={() => handleMoveRefDown(index)}
-                      disabled={index === includedRefs.length - 1}
-                      aria-label="Move down"
-                    >▼</button>
-                  </div>
-                  <label className="edit-list-screen__checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={true}
-                      onChange={() => handleRemoveRef(l.id)}
-                    />
-                    {l.name}
-                  </label>
-                </li>
-              ))}
-              {excludedRefs.map((l) => (
-                <li key={l.id} className="edit-list-screen__ref-item">
-                  <label className="edit-list-screen__checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={false}
-                      onChange={() => handleAddRef(l.id)}
-                    />
-                    {l.name}
-                  </label>
-                </li>
-              ))}
-            </ul>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRefsDragEnd}>
+              <SortableContext items={referencedListIds} strategy={verticalListSortingStrategy}>
+                <ul className="edit-list-screen__ref-list">
+                  {includedRefs.map((l) => (
+                    <SortableRefRow key={l.id} list={l} onRemove={handleRemoveRef} />
+                  ))}
+                  {excludedRefs.map((l) => (
+                    <li key={l.id} className="edit-list-screen__ref-item">
+                      <label className="edit-list-screen__checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={false}
+                          onChange={() => handleAddRef(l.id)}
+                        />
+                        {l.name}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </SortableContext>
+            </DndContext>
           </section>
         )}
 
         <section className="edit-list-screen__section">
           <h2 className="edit-list-screen__label">Items</h2>
-          <ul className="edit-list-screen__items">
-            {items.map((item, index) => (
-              <li
-                key={itemKeysRef.current[index] ?? index}
-                className="edit-list-screen__item"
-              >
-                <div className="edit-list-screen__move-btns">
-                  <button
-                    className="btn btn--icon edit-list-screen__move-btn"
-                    onClick={() => handleMoveUp(index)}
-                    disabled={index === 0}
-                    aria-label="Move up"
-                  >
-                    ▲
-                  </button>
-                  <button
-                    className="btn btn--icon edit-list-screen__move-btn"
-                    onClick={() => handleMoveDown(index)}
-                    disabled={index === items.length - 1}
-                    aria-label="Move down"
-                  >
-                    ▼
-                  </button>
-                </div>
-                {editingIndex === index ? (
-                  <input
-                    // eslint-disable-next-line jsx-a11y/no-autofocus
-                    autoFocus
-                    className="edit-list-screen__item-input edit-list-screen__item-input--editing"
-                    type="text"
-                    defaultValue={item}
-                    onBlur={(e) => handleEditCommit(index, e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') e.currentTarget.blur();
-                      if (e.key === 'Escape') setEditingIndex(null);
-                    }}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleItemsDragEnd}>
+            <SortableContext items={itemKeysRef.current} strategy={verticalListSortingStrategy}>
+              <ul className="edit-list-screen__items">
+                {items.map((item, index) => (
+                  <SortableItemRow
+                    key={itemKeysRef.current[index] ?? index}
+                    itemKey={itemKeysRef.current[index] ?? String(index)}
+                    item={item}
+                    index={index}
+                    isEditing={editingIndex === index}
+                    onEditCommit={handleEditCommit}
+                    onSetEditingIndex={setEditingIndex}
+                    onRemove={handleRemoveItem}
                   />
-                ) : (
-                  <button
-                    className="edit-list-screen__item-text"
-                    onClick={() => setEditingIndex(index)}
-                    aria-label={`Edit ${item}`}
-                  >
-                    {item}
-                  </button>
-                )}
-                <button
-                  className="btn btn--icon edit-list-screen__remove-btn"
-                  onClick={() => handleRemoveItem(index)}
-                  aria-label={`Remove ${item}`}
-                >
-                  ✕
-                </button>
-              </li>
-            ))}
-          </ul>
+                ))}
+              </ul>
+            </SortableContext>
+          </DndContext>
 
           <div className="edit-list-screen__add-row">
             <input

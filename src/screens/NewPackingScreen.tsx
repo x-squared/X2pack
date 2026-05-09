@@ -2,11 +2,41 @@ import { useEffect, useState } from 'react';
 import { getAllPackLists } from '../db/packLists.js';
 import { createPacking } from '../db/packings.js';
 import type { PackList, Screen } from '../types/index.js';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import './NewPackingScreen.css';
 
 type Props = {
   readonly onNavigate: (screen: Screen) => void;
 };
+
+type SortableSelectedItemProps = {
+  readonly list: PackList;
+  readonly onToggle: (id: string) => void;
+};
+
+function SortableSelectedItem({ list, onToggle }: SortableSelectedItemProps): React.ReactElement {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: list.id });
+  return (
+    <li
+      ref={setNodeRef}
+      style={{ transform: transform ? CSS.Transform.toString(transform) : undefined, transition, opacity: isDragging ? 0.4 : undefined }}
+      className="new-packing-screen__list-item new-packing-screen__list-item--selected"
+    >
+      <span className="drag-handle" {...attributes} {...listeners} aria-label="Drag to reorder">⠿</span>
+      <label className="new-packing-screen__checkbox-label">
+        <input
+          type="checkbox"
+          checked={true}
+          onChange={() => onToggle(list.id)}
+        />
+        <span>{list.name}</span>
+      </label>
+    </li>
+  );
+}
 
 export default function NewPackingScreen({ onNavigate }: Props): React.ReactElement {
   const today = new Date().toISOString().slice(0, 10);
@@ -17,6 +47,10 @@ export default function NewPackingScreen({ onNavigate }: Props): React.ReactElem
   const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
   const [allLists, setAllLists] = useState<PackList[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
 
   const nameInvalid = nameTouched && !name.trim();
   const datesValid = !!fromDate && !!toDate && toDate >= fromDate;
@@ -42,26 +76,13 @@ export default function NewPackingScreen({ onNavigate }: Props): React.ReactElem
     );
   }
 
-  function handleMoveUp(index: number): void {
-    if (index === 0) return;
-    setSelectedListIds((prev) => {
-      const next = [...prev];
-      const tmp = next[index - 1] as string;
-      next[index - 1] = next[index] as string;
-      next[index] = tmp;
-      return next;
-    });
-  }
-
-  function handleMoveDown(index: number): void {
-    setSelectedListIds((prev) => {
-      if (index >= prev.length - 1) return prev;
-      const next = [...prev];
-      const tmp = next[index] as string;
-      next[index] = next[index + 1] as string;
-      next[index + 1] = tmp;
-      return next;
-    });
+  function handleDragEnd(event: DragEndEvent): void {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = selectedListIds.indexOf(String(active.id));
+    const newIndex = selectedListIds.indexOf(String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    setSelectedListIds((prev) => arrayMove(prev, oldIndex, newIndex));
   }
 
   async function handleStart(): Promise<void> {
@@ -161,46 +182,27 @@ export default function NewPackingScreen({ onNavigate }: Props): React.ReactElem
                   return a.isMajor ? -1 : 1;
                 });
               return (
-                <ul className="new-packing-screen__list">
-                  {selectedLists.map((l, index) => (
-                    <li key={l.id} className="new-packing-screen__list-item new-packing-screen__list-item--selected">
-                      <div className="new-packing-screen__move-btns">
-                        <button
-                          className="btn btn--icon new-packing-screen__move-btn"
-                          onClick={() => handleMoveUp(index)}
-                          disabled={index === 0}
-                          aria-label="Move up"
-                        >▲</button>
-                        <button
-                          className="btn btn--icon new-packing-screen__move-btn"
-                          onClick={() => handleMoveDown(index)}
-                          disabled={index === selectedLists.length - 1}
-                          aria-label="Move down"
-                        >▼</button>
-                      </div>
-                      <label className="new-packing-screen__checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={true}
-                          onChange={() => handleToggle(l.id)}
-                        />
-                        <span>{l.name}</span>
-                      </label>
-                    </li>
-                  ))}
-                  {unselectedLists.map((l) => (
-                    <li key={l.id} className={`new-packing-screen__list-item${l.isMajor ? ' new-packing-screen__list-item--major' : ''}`}>
-                      <label className="new-packing-screen__checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={false}
-                          onChange={() => handleToggle(l.id)}
-                        />
-                        <span>{l.isMajor ? <><span className="new-packing-screen__major-star" aria-hidden>★</span>{l.name}</> : l.name}</span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={selectedListIds} strategy={verticalListSortingStrategy}>
+                    <ul className="new-packing-screen__list">
+                      {selectedLists.map((l) => (
+                        <SortableSelectedItem key={l.id} list={l} onToggle={handleToggle} />
+                      ))}
+                      {unselectedLists.map((l) => (
+                        <li key={l.id} className={`new-packing-screen__list-item${l.isMajor ? ' new-packing-screen__list-item--major' : ''}`}>
+                          <label className="new-packing-screen__checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={false}
+                              onChange={() => handleToggle(l.id)}
+                            />
+                            <span>{l.isMajor ? <><span className="new-packing-screen__major-star" aria-hidden>★</span>{l.name}</> : l.name}</span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </SortableContext>
+                </DndContext>
               );
             })()}
         </section>

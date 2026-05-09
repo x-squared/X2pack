@@ -3,3 +3,22 @@
   flex-direction: column;
   min-height: 100svh;
 }
+
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  padding: 0 var(--space-2);
+  color: var(--color-muted);
+  font-size: 20px;
+  cursor: grab;
+  touch-action: none;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+  color: var(--color-text);
+}

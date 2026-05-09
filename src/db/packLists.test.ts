@@ -1,6 +1,12 @@
-import { describe, it, expect } from 'vitest';
-import { hasCircularReference, isDependedUpon, resolveLeafLists } from './packLists.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { hasCircularReference, isDependedUpon, resolveLeafLists, savePackList } from './packLists.js';
+import { mockDb } from './mockDb.js';
 import type { PackList } from '../types/index.js';
+
+vi.mock('./db.js', async () => {
+  const { mockDb } = await import('./mockDb.js');
+  return { getDb: () => Promise.resolve(mockDb) };
+});
 
 function makeList(id: string, refs: string[] = [], items: string[] = []): PackList {
   return { id, name: id, items, referencedListIds: refs, createdAt: '', updatedAt: '' };
@@ -66,7 +72,7 @@ describe('resolveLeafLists', () => {
   it('expands one level of references', () => {
     const lists = [makeList('a', ['b', 'c']), makeList('b'), makeList('c')];
     const leaves = resolveLeafLists(['a'], lists);
-    expect(leaves.map((l) => l.id).sort()).toEqual(['b', 'c']);
+    expect(leaves.map((l) => l.id).sort((a, b) => a.localeCompare(b))).toEqual(['b', 'c']);
   });
 
   it('expands transitively', () => {
@@ -90,7 +96,7 @@ describe('resolveLeafLists', () => {
   it('handles multiple root ids', () => {
     const lists = [makeList('a'), makeList('b')];
     const leaves = resolveLeafLists(['a', 'b'], lists);
-    expect(leaves.map((l) => l.id).sort()).toEqual(['a', 'b']);
+    expect(leaves.map((l) => l.id).sort((a, b) => a.localeCompare(b))).toEqual(['a', 'b']);
   });
 
   it('returns empty array for unknown root id', () => {
@@ -107,5 +113,30 @@ describe('resolveLeafLists', () => {
     ];
     const leaves = resolveLeafLists(['parent'], lists);
     expect(leaves.map((l) => l.id).sort((a, b) => a.localeCompare(b))).toEqual(['child', 'parent']);
+  });
+});
+
+describe('savePackList', () => {
+  beforeEach(() => {
+    mockDb.clear();
+  });
+
+  it('preserves isMajor when editing a list without passing isMajor', async () => {
+    const created = await savePackList({ name: 'Camping', items: ['Tent'], referencedListIds: [], isMajor: true });
+    expect(created.isMajor).toBe(true);
+
+    const updated = await savePackList({ name: 'Camping updated', items: ['Tent', 'Stove'], referencedListIds: [] }, created.id);
+    expect(updated.isMajor).toBe(true);
+  });
+
+  it('allows explicitly clearing isMajor when editing', async () => {
+    const created = await savePackList({ name: 'Camping', items: [], referencedListIds: [], isMajor: true });
+    const updated = await savePackList({ name: 'Camping', items: [], referencedListIds: [], isMajor: false }, created.id);
+    expect(updated.isMajor).toBe(false);
+  });
+
+  it('does not set isMajor on new lists when not specified', async () => {
+    const created = await savePackList({ name: 'Camping', items: [], referencedListIds: [] });
+    expect(created.isMajor).toBeUndefined();
   });
 });
