@@ -73,6 +73,7 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
   const [editFromDate, setEditFromDate] = useState('');
   const [editToDate, setEditToDate] = useState('');
   const [newItemText, setNewItemText] = useState('');
+  const [showOnlyOpen, setShowOnlyOpen] = useState(false);
   const newItemInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -165,6 +166,15 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
   const done = packing.items.filter((i) => i.status !== 'pending').length;
   const isDone = packing.status === 'done';
 
+  const filteredGroups = showOnlyOpen
+    ? groups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter(({ item }) => item.status === 'pending'),
+        }))
+        .filter((group) => group.items.length > 0)
+    : groups;
+
   const displayFrom = isDone ? packing.fromDate : editFromDate;
   const displayTo = isDone ? packing.toDate : editToDate;
   const datesValid = !!displayFrom && !!displayTo && displayTo >= displayFrom;
@@ -195,9 +205,12 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
         />
       </div>
 
-      <p className="packing-screen__counter">
-        {done} of {total} items completed
-      </p>
+      <button
+        className="packing-screen__counter packing-screen__counter--toggle"
+        onClick={() => setShowOnlyOpen((v) => !v)}
+      >
+        {done} of {total} items completed ({showOnlyOpen ? 'showing open items' : 'showing all items'})
+      </button>
 
       {!isDone && (
         <div className="packing-screen__date-strip">
@@ -239,14 +252,22 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
       )}
 
       <main className="packing-screen__content">
-        {isDone && (
-          <div className="packing-screen__done-banner">
-            <img src={`${import.meta.env.BASE_URL}complete.png`} className="packing-screen__done-icon" alt="" />
-            <span>All packed!</span>
+        {isDone && showOnlyOpen ? (
+          <div className="packing-screen__complete-full">
+            <img src={`${import.meta.env.BASE_URL}complete.png`} className="packing-screen__complete-icon-full" alt="All packed!" />
           </div>
+        ) : (
+          <>
+            {isDone && (
+              <div className="packing-screen__done-banner">
+                <img src={`${import.meta.env.BASE_URL}complete.png`} className="packing-screen__done-icon" alt="" />
+                <span>All packed!</span>
+              </div>
+            )}
+          </>
         )}
 
-        {groups.map((group) => (
+        {filteredGroups.map((group) => (
           <section key={group.listName} className="packing-screen__group">
             <h2 className="packing-screen__group-title">{group.listName}</h2>
             <ul className="packing-screen__items">

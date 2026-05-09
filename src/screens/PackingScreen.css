@@ -17,8 +17,9 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  height: var(--header-height);
-  padding: 0 var(--space-3);
+  min-height: var(--header-height);
+  height: auto;
+  padding: var(--space-3);
   background: var(--color-bg);
   background-image: var(--bg-noise);
   border-bottom: 1px solid rgba(0, 0, 0, 0.12);
@@ -43,12 +44,12 @@
 
 .packing-screen__name {
   font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-base);
+  font-size: 32px;
   color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  letter-spacing: -0.1px;
+  letter-spacing: -0.5px;
 }
 
 .packing-screen__date {
@@ -84,7 +85,7 @@
   background: none;
   border: none;
   padding: 0;
-  font: inherit;
+  font-family: inherit;
   cursor: pointer;
   text-decoration: underline dotted rgba(0, 0, 0, 0.3);
   text-underline-offset: 3px;
@@ -96,12 +97,12 @@
   border: none;
   border-bottom: 1.5px solid rgba(0, 0, 0, 0.4);
   font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-base);
+  font-size: 32px;
   color: var(--color-text);
   text-align: center;
   width: 100%;
   outline: none;
-  letter-spacing: -0.1px;
+  letter-spacing: -0.5px;
 }
 
 /* Date strip below counter */
@@ -158,13 +159,39 @@
 
 /* Counter sub-header — visually part of the navigation zone */
 .packing-screen__counter {
+  display: block;
+  width: 100%;
   padding: var(--space-2) var(--space-4);
   font-size: var(--font-size-sm);
   color: var(--color-muted);
   background: var(--color-bg);
+  border: none;
   border-bottom: 1px solid var(--color-separator);
   text-align: center;
   letter-spacing: 0.01em;
+}
+
+.packing-screen__counter--toggle {
+  cursor: pointer;
+  text-decoration: underline dotted rgba(0, 0, 0, 0.3);
+  text-underline-offset: 3px;
+}
+
+.packing-screen__counter--toggle:active {
+  background: var(--color-fill);
+}
+
+.packing-screen__complete-full {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--space-8) 0;
+}
+
+.packing-screen__complete-icon-full {
+  width: 66.67%;
+  max-width: 400px;
+  aspect-ratio: 1 / 1;
 }
 
 .packing-screen__done-banner {
