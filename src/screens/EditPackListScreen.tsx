@@ -354,33 +354,6 @@ export default function EditPackListScreen({
           />
         </section>
 
-        {candidatesForReference.length > 0 && (
-          <section className="edit-list-screen__section">
-            <h2 className="edit-list-screen__label">Include other lists</h2>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRefsDragEnd}>
-              <SortableContext items={referencedListIds} strategy={verticalListSortingStrategy}>
-                <ul className="edit-list-screen__ref-list">
-                  {includedRefs.map((l) => (
-                    <SortableRefRow key={l.id} list={l} onRemove={handleRemoveRef} />
-                  ))}
-                  {excludedRefs.map((l) => (
-                    <li key={l.id} className="edit-list-screen__ref-item">
-                      <label className="edit-list-screen__checkbox-label">
-                        <input
-                          type="checkbox"
-                          checked={false}
-                          onChange={() => handleAddRef(l.id)}
-                        />
-                        {l.name}
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              </SortableContext>
-            </DndContext>
-          </section>
-        )}
-
         <section className="edit-list-screen__section">
           <h2 className="edit-list-screen__label">Items</h2>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleItemsDragEnd}>
@@ -422,6 +395,33 @@ export default function EditPackListScreen({
             </button>
           </div>
         </section>
+
+        {candidatesForReference.length > 0 && (
+          <section className="edit-list-screen__section">
+            <h2 className="edit-list-screen__label">Include other lists</h2>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRefsDragEnd}>
+              <SortableContext items={referencedListIds} strategy={verticalListSortingStrategy}>
+                <ul className="edit-list-screen__ref-list">
+                  {includedRefs.map((l) => (
+                    <SortableRefRow key={l.id} list={l} onRemove={handleRemoveRef} />
+                  ))}
+                  {excludedRefs.map((l) => (
+                    <li key={l.id} className="edit-list-screen__ref-item">
+                      <label className="edit-list-screen__checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={false}
+                          onChange={() => handleAddRef(l.id)}
+                        />
+                        {l.name}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </SortableContext>
+            </DndContext>
+          </section>
+        )}
       </main>
     </div>
   );
