@@ -194,6 +194,11 @@
   flex-shrink: 0;
 }
 
+.new-packing-screen__lists-intro {
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
 .new-packing-screen__start-btn {
   display: block;
   width: 100%;

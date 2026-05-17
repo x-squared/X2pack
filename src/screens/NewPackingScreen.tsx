@@ -157,6 +157,16 @@ export default function NewPackingScreen({ onNavigate }: Props): React.ReactElem
               You are packing for a total of {tripDays} {tripDays === 1 ? 'day' : 'days'}.
             </p>
           )}
+          <p className="new-packing-screen__hint new-packing-screen__lists-intro">
+            Choose one or several of the lists below to pack. Once you start a packing, changing lists will not change the packing. But you can add items to a packing at any time.
+          </p>
+          <button
+            className="btn btn--primary new-packing-screen__start-btn"
+            onClick={() => void handleStart()}
+            disabled={!canStart}
+          >
+            Start Packing
+          </button>
         </section>
 
         <section className="new-packing-screen__section">
