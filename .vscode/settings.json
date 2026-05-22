@@ -1,0 +1,6 @@
+{
+    "sonarlint.connectedMode.project": {
+        "connectionId": "x-squared",
+        "projectKey": "x-squared_X2pack"
+    }
+}

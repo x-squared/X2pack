@@ -3,17 +3,11 @@ import type { PackList } from '../types/index.js';
 
 /**¨
  * Markdown format:
- * 
+ *
  * # List Name
- * 
- * - include: List Name
- * - Item 1
- * - Item 2
- * - ...
- * 
- * # Another List Name
- * 
- * - include: List Name
+ *
+ * -> Other List        (exported reference format)
+ * - include: Other List  (legacy reference format, import only)
  * - Item 1
  * - Item 2
  * - ...
@@ -40,7 +34,7 @@ function parseMarkdown(markdown: string): ParsedList[] {
     const headingMatch = /^#\s+(.+)$/.exec(line);
     if (headingMatch) {
       const headingText = headingMatch[1]!;
-      const majorMatch = new RegExp(`^${MAJOR_PREFIX}:\\s+(.+)$`).exec(headingText);
+      const majorMatch = new RegExp(String.raw`^${MAJOR_PREFIX}:\s+(.+)$`).exec(headingText);
       const isMajor = majorMatch !== null;
       const name = majorMatch ? majorMatch[1]! : headingText;
       current = { name, items: [], referencedListNames: [], isMajor };
@@ -50,7 +44,9 @@ function parseMarkdown(markdown: string): ParsedList[] {
 
     if (!current) continue;
 
-    const refMatch = new RegExp(`^-\\s+${REFERENCE_PREFIX}:\\s+(.+)$`).exec(line);
+    const refMatch =
+      /^->\s+(.+)$/.exec(line) ??
+      new RegExp(String.raw`^-\s+${REFERENCE_PREFIX}:\s+(.+)$`).exec(line);
     if (refMatch) {
       current.referencedListNames.push(refMatch[1]!.trim());
       continue;
@@ -77,7 +73,7 @@ export function serializePackLists(lists: readonly PackList[]): string {
     }
     for (const refId of list.referencedListIds) {
       const refName = nameById.get(refId) ?? refId;
-      lines.push(`- ${REFERENCE_PREFIX}: ${refName}`);
+      lines.push(`-> ${refName}`);
     }
     sections.push(lines.join('\n'));
   }
@@ -125,12 +121,12 @@ type WindowWithFilePicker = Window & {
 
 export async function downloadPackLists(lists: readonly PackList[]): Promise<void> {
   const content = serializePackLists(lists);
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const today = new Date().toISOString().slice(0, 10).replaceAll('-', '');
   const filename = `pack-lists-${today}.md`;
   const blob = new Blob([content], { type: 'text/markdown' });
 
   // File System Access API — user picks the save location (Chrome desktop, Android Chrome)
-  const win = window as WindowWithFilePicker;
+  const win = globalThis as unknown as WindowWithFilePicker;
   if (win.showSaveFilePicker) {
     try {
       const handle = await win.showSaveFilePicker({
@@ -165,6 +161,6 @@ export async function downloadPackLists(lists: readonly PackList[]): Promise<voi
   a.download = filename;
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
+  a.remove();
   URL.revokeObjectURL(url);
 }
