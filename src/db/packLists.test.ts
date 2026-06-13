@@ -12,7 +12,7 @@ import {
   putPackListSortOrderDirect,
   putPackListMajorDirect,
 } from './packLists.js';
-import { mockDb } from './mockDb.js';
+import { mockDb, requireStored } from './mockDb.js';
 import type { PackList } from '../types/index.js';
 import { emitSync } from '../sync/emitter.js';
 
@@ -129,6 +129,22 @@ describe('resolveLeafLists', () => {
     const leaves = resolveLeafLists(['parent'], lists);
     expect(leaves.map((l) => l.id).sort((a, b) => a.localeCompare(b))).toEqual(['child', 'parent']);
   });
+
+  it('returns empty when references form a cycle with no leaf lists', () => {
+    const lists = [makeList('a', ['b']), makeList('b', ['a'])];
+    expect(resolveLeafLists(['a'], lists)).toHaveLength(0);
+  });
+
+  it('skips missing referenced ids without throwing', () => {
+    const lists = [makeList('a', ['missing'])];
+    expect(resolveLeafLists(['a'], lists)).toHaveLength(0);
+  });
+
+  it('ignores direct self-reference when expanding', () => {
+    const lists = [makeList('a', ['a'], ['item'])];
+    const leaves = resolveLeafLists(['a'], lists);
+    expect(leaves.map((l) => l.id)).toEqual(['a']);
+  });
 });
 
 describe('savePackList', () => {
@@ -170,21 +186,21 @@ describe('putPackListDirect', () => {
   it('replaces local when remote is strictly newer', async () => {
     await mockDb.put('packLists', { ...makeList('l1'), name: 'Old', updatedAt: '2026-01-01' });
     await putPackListDirect({ ...makeList('l1'), name: 'New', updatedAt: '2026-01-02' });
-    const stored = await mockDb.get('packLists', 'l1');
+    const stored = requireStored(await mockDb.get('packLists', 'l1'), 'pack list l1');
     expect(stored.name).toBe('New');
   });
 
   it('keeps local when local is strictly newer', async () => {
     await mockDb.put('packLists', { ...makeList('l1'), name: 'Local', updatedAt: '2026-01-02' });
     await putPackListDirect({ ...makeList('l1'), name: 'Remote', updatedAt: '2026-01-01' });
-    const stored = await mockDb.get('packLists', 'l1');
+    const stored = requireStored(await mockDb.get('packLists', 'l1'), 'pack list l1');
     expect(stored.name).toBe('Local');
   });
 
   it('replaces local when timestamps are equal (remote >= local boundary)', async () => {
     await mockDb.put('packLists', { ...makeList('l1'), name: 'Old', updatedAt: '2026-01-01' });
     await putPackListDirect({ ...makeList('l1'), name: 'Same-time', updatedAt: '2026-01-01' });
-    const stored = await mockDb.get('packLists', 'l1');
+    const stored = requireStored(await mockDb.get('packLists', 'l1'), 'pack list l1');
     expect(stored.name).toBe('Same-time');
   });
 });
@@ -195,7 +211,7 @@ describe('putPackListSortOrderDirect', () => {
   it('updates sortOrder and preserves all other fields', async () => {
     await mockDb.put('packLists', { ...makeList('l1'), name: 'Keep Me', sortOrder: 10, updatedAt: '2026-01-01' });
     await putPackListSortOrderDirect('l1', 99, '2026-01-02');
-    const stored = await mockDb.get('packLists', 'l1');
+    const stored = requireStored(await mockDb.get('packLists', 'l1'), 'pack list l1');
     expect(stored.sortOrder).toBe(99);
     expect(stored.name).toBe('Keep Me');
     expect(stored.updatedAt).toBe('2026-01-02');
@@ -208,7 +224,7 @@ describe('putPackListSortOrderDirect', () => {
   it('skips when remote updatedAt is older', async () => {
     await mockDb.put('packLists', { ...makeList('l1'), sortOrder: 10, updatedAt: '2026-01-02' });
     await putPackListSortOrderDirect('l1', 99, '2026-01-01');
-    expect((await mockDb.get('packLists', 'l1')).sortOrder).toBe(10);
+    expect(requireStored(await mockDb.get('packLists', 'l1'), 'pack list l1').sortOrder).toBe(10);
   });
 });
 
@@ -218,7 +234,7 @@ describe('putPackListMajorDirect', () => {
   it('sets isMajor to true', async () => {
     await mockDb.put('packLists', { ...makeList('l1'), updatedAt: '2026-01-01' });
     await putPackListMajorDirect('l1', true, '2026-01-02');
-    const stored = await mockDb.get('packLists', 'l1');
+    const stored = requireStored(await mockDb.get('packLists', 'l1'), 'pack list l1');
     expect(stored.isMajor).toBe(true);
     expect(stored.updatedAt).toBe('2026-01-02');
   });
@@ -226,7 +242,7 @@ describe('putPackListMajorDirect', () => {
   it('sets isMajor to false', async () => {
     await mockDb.put('packLists', { ...makeList('l1'), isMajor: true, updatedAt: '2026-01-01' });
     await putPackListMajorDirect('l1', false, '2026-01-02');
-    expect((await mockDb.get('packLists', 'l1')).isMajor).toBe(false);
+    expect(requireStored(await mockDb.get('packLists', 'l1'), 'pack list l1').isMajor).toBe(false);
   });
 
   it('does nothing when the id does not exist', async () => {
@@ -240,7 +256,7 @@ describe('deletePackList (soft delete)', () => {
   it('sets deletedAt and hides from getAllPackLists', async () => {
     await mockDb.put('packLists', makeList('l1'));
     await deletePackList('l1');
-    const stored = await mockDb.get('packLists', 'l1');
+    const stored = requireStored(await mockDb.get('packLists', 'l1'), 'pack list l1');
     expect(stored.deletedAt).toBeDefined();
     expect(await getAllPackLists()).toHaveLength(0);
     expect(await getAllPackListsForSync()).toHaveLength(1);
@@ -262,13 +278,13 @@ describe('deletePackListDirect', () => {
   it('soft-deletes an existing list when remote is newer', async () => {
     await mockDb.put('packLists', { ...makeList('l1'), updatedAt: '2026-01-01' });
     await deletePackListDirect('l1', '2026-01-02', '2026-01-02');
-    expect((await mockDb.get('packLists', 'l1')).deletedAt).toBe('2026-01-02');
+    expect(requireStored(await mockDb.get('packLists', 'l1'), 'pack list l1').deletedAt).toBe('2026-01-02');
   });
 
   it('skips when remote is older than local', async () => {
     await mockDb.put('packLists', { ...makeList('l1'), updatedAt: '2026-01-02' });
     await deletePackListDirect('l1', '2026-01-01', '2026-01-01');
-    expect((await mockDb.get('packLists', 'l1')).deletedAt).toBeUndefined();
+    expect(requireStored(await mockDb.get('packLists', 'l1'), 'pack list l1').deletedAt).toBeUndefined();
   });
 });
 

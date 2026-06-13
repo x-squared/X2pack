@@ -2,35 +2,35 @@ import {
   encodeForQR,
   decodeFromQR,
   filterHostCandidates,
+  SYNC_PROTOCOL_VERSION,
+  assessProtocolCompatibility,
+  protocolMismatchMessage,
   type PairingPhase,
   type SyncMessage,
 } from './protocol.js';
 import { setSyncListener } from './emitter.js';
 import { tickDbVersion } from './dbVersion.js';
+import { dbChangesForMessage } from './syncHandlers.js';
 import { notePeerSentAt, resetPeerSkewMs, getPeerSkewMs } from './clockSkew.js';
-import { gcTombstones } from '../db/tombstoneGc.js';
+import { applyFullState, applyIncrementalSyncMessage } from './syncHandlers.js';
 import {
-  getAllPackListsForSync,
-  putPackListDirect,
-  putPackListSortOrderDirect,
-  putPackListMajorDirect,
-  deletePackListDirect,
-} from '../db/packLists.js';
-import {
-  getAllPackingsForSync,
-  mergeAndPutPacking,
-  deletePackingDirect,
-  updatePackingItemDirect,
-  updatePackingMetaDirect,
-  addPackingItemDirect,
-} from '../db/packings.js';
+  checkIncomingSeq,
+  isSyncEnvelope,
+  wrapSyncEnvelope,
+} from './syncSeq.js';
+import { getAllPackListsForSync } from '../db/packLists.js';
+import { getAllPackingsForSync } from '../db/packings.js';
+
+/** Pause outbound sends when the DataChannel buffer exceeds this (bytes). */
+const MAX_BUFFERED_BYTES = 256 * 1024;
 
 /**
  * WebRTC pairing and DataChannel sync for local (same-network) use.
  *
- * Owns the `RTCPeerConnection`, routes incoming {@link SyncMessage}s to `*Direct`
- * DB helpers, and registers {@link setSyncListener} on connect. Not a React
- * component — provided via {@link SyncContext}.
+ * Owns the `RTCPeerConnection`, routes incoming {@link SyncMessage}s to
+ * {@link applyFullState} / {@link applyIncrementalSyncMessage}, and registers
+ * {@link setSyncListener} on connect. Not a React component — provided via
+ * {@link SyncContext}.
  *
  * **Architecture overview:** see {@link ./syncArchitecture.ts}.
  */
@@ -40,8 +40,18 @@ export class WebRTCManager {
   private phase: PairingPhase = 'idle';
   private error: string | null = null;
   private peerAppVersion: string | null = null;
+  private peerProtocolVersion: number | undefined;
+  private protocolMismatch: string | null = null;
+  private syncBlocked = false;
   private readonly listeners = new Set<() => void>();
   private userDisconnecting = false;
+
+  /** Per-channel session — resets on every DataChannel open. */
+  private sessionId = '';
+  private outSeq = 0;
+  private peerSessionId: string | null = null;
+  private lastPeerSeq = 0;
+  private resyncInFlight = false;
 
   getPhase(): PairingPhase {
     return this.phase;
@@ -49,6 +59,11 @@ export class WebRTCManager {
 
   getError(): string | null {
     return this.error;
+  }
+
+  /** Non-fatal protocol mismatch warning, or fatal message before disconnect. */
+  getProtocolMismatch(): string | null {
+    return this.protocolMismatch;
   }
 
   /** App version reported by the peer in the last `sync_meta` / `full_state`. */
@@ -131,7 +146,10 @@ export class WebRTCManager {
     this.userDisconnecting = true;
     setSyncListener(null);
     resetPeerSkewMs();
+    this.resetSessionState();
     this.peerAppVersion = null;
+    this.protocolMismatch = null;
+    this.syncBlocked = false;
     this.channel?.close();
     this.pc?.close();
     this.channel = null;
@@ -146,7 +164,9 @@ export class WebRTCManager {
     this.userDisconnecting = true;
     setSyncListener(null);
     resetPeerSkewMs();
+    this.resetSessionState();
     this.peerAppVersion = null;
+    this.syncBlocked = false;
     this.channel?.close();
     this.pc?.close();
     this.channel = null;
@@ -156,13 +176,67 @@ export class WebRTCManager {
     this.setPhase('error');
   }
 
+  /** Send a sync payload to the peer (wrapped in a sequenced envelope). */
   send(msg: SyncMessage): void {
-    if (this.channel?.readyState === 'open') {
-      this.channel.send(JSON.stringify(msg));
-    }
+    this.sendPayload(msg);
   }
 
   // --- Private helpers ---
+
+  private resetSessionState(): void {
+    this.sessionId = '';
+    this.outSeq = 0;
+    this.peerSessionId = null;
+    this.lastPeerSeq = 0;
+    this.peerProtocolVersion = undefined;
+    this.resyncInFlight = false;
+  }
+
+  private beginSession(): void {
+    this.sessionId = crypto.randomUUID();
+    this.outSeq = 0;
+    this.peerSessionId = null;
+    this.lastPeerSeq = 0;
+    this.resyncInFlight = false;
+  }
+
+  private sendPayload(payload: SyncMessage): boolean {
+    const channel = this.channel;
+    if (!channel || channel.readyState !== 'open') {
+      console.warn('[sync] send skipped — DataChannel not open');
+      return false;
+    }
+
+    if (channel.bufferedAmount > MAX_BUFFERED_BYTES) {
+      console.warn('[sync] send buffer full — scheduling resync');
+      void this.scheduleResync('send buffer full');
+      return false;
+    }
+
+    this.outSeq++;
+    const envelope = wrapSyncEnvelope(this.sessionId, this.outSeq, payload);
+
+    try {
+      channel.send(JSON.stringify(envelope));
+      return true;
+    } catch (err: unknown) {
+      console.warn('[sync] send failed — scheduling resync', err);
+      void this.scheduleResync('send failed');
+      return false;
+    }
+  }
+
+  /** Debounced full_state push after detected loss or send failure. */
+  private async scheduleResync(reason: string): Promise<void> {
+    if (this.resyncInFlight || this.syncBlocked) return;
+    this.resyncInFlight = true;
+    console.warn('[sync] resync:', reason);
+    try {
+      await this.sendFullState();
+    } finally {
+      this.resyncInFlight = false;
+    }
+  }
 
   private setupPeerConnection(pc: RTCPeerConnection): void {
     pc.onconnectionstatechange = () => {
@@ -210,6 +284,7 @@ export class WebRTCManager {
 
   private setupChannel(channel: RTCDataChannel): void {
     channel.onopen = () => {
+      this.beginSession();
       this.setPhase('connected');
       void this.sendFullState();
       setSyncListener((msg) => this.send(msg));
@@ -218,7 +293,10 @@ export class WebRTCManager {
     channel.onclose = () => {
       setSyncListener(null);
       resetPeerSkewMs();
+      this.resetSessionState();
       this.peerAppVersion = null;
+      this.protocolMismatch = null;
+      this.syncBlocked = false;
       if (!this.userDisconnecting && this.phase === 'connected') {
         this.setPhase('disconnected');
       }
@@ -232,17 +310,36 @@ export class WebRTCManager {
 
     channel.onmessage = (evt) => {
       try {
-        const msg = JSON.parse(evt.data as string) as SyncMessage;
-        void this.onMessage(msg);
+        void this.onWireMessage(String(evt.data));
       } catch {
         // ignore malformed messages
       }
     };
   }
 
-  private notePeerMetadata(sentAt: string, appVersion?: string): void {
+  private reconcilePeerProtocol(protocolVersion?: number): void {
+    const compat = assessProtocolCompatibility(protocolVersion);
+    if (compat === 'ok') {
+      this.protocolMismatch = null;
+      return;
+    }
+
+    const message = protocolMismatchMessage(protocolVersion);
+    this.protocolMismatch = message;
+    this.notify();
+
+    if (compat === 'incompatible') {
+      this.syncBlocked = true;
+      this.setPairingError(message);
+      this.protocolMismatch = message;
+    }
+  }
+
+  private notePeerMetadata(sentAt: string, appVersion?: string, protocolVersion?: number): void {
     notePeerSentAt(sentAt);
     if (appVersion) this.peerAppVersion = appVersion;
+    if (protocolVersion !== undefined) this.peerProtocolVersion = protocolVersion;
+    this.reconcilePeerProtocol(protocolVersion);
   }
 
   private async sendFullState(): Promise<void> {
@@ -251,64 +348,83 @@ export class WebRTCManager {
       getAllPackingsForSync(),
     ]);
     const sentAt = new Date().toISOString();
-    this.send({ type: 'sync_meta', sentAt, appVersion: __APP_VERSION__ });
-    this.send({ type: 'full_state', sentAt, appVersion: __APP_VERSION__, packLists, packings });
+    this.sendPayload({
+      type: 'sync_meta',
+      sentAt,
+      appVersion: __APP_VERSION__,
+      protocolVersion: SYNC_PROTOCOL_VERSION,
+    });
+    this.sendPayload({
+      type: 'full_state',
+      sentAt,
+      appVersion: __APP_VERSION__,
+      protocolVersion: SYNC_PROTOCOL_VERSION,
+      packLists,
+      packings,
+    });
+  }
+
+  private async onWireMessage(raw: string): Promise<void> {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return;
+    }
+
+    if (!isSyncEnvelope(parsed)) {
+      console.warn('[sync] ignoring message without seq envelope');
+      return;
+    }
+
+    const { sessionId, seq, payload } = parsed;
+    const check = checkIncomingSeq(this.peerSessionId, this.lastPeerSeq, sessionId, seq);
+
+    if (check.result.action === 'duplicate') return;
+
+    if (check.result.action === 'gap') {
+      if (payload.type === 'full_state') {
+        this.peerSessionId = sessionId;
+        this.lastPeerSeq = seq;
+        await this.onMessage(payload);
+        return;
+      }
+      console.warn(
+        '[sync] seq gap — expected',
+        check.result.expected,
+        'got',
+        check.result.received,
+      );
+      void this.scheduleResync('seq gap');
+      return;
+    }
+
+    this.peerSessionId = check.peerSessionId;
+    this.lastPeerSeq = check.result.newLastSeq;
+    await this.onMessage(payload);
   }
 
   private async onMessage(msg: SyncMessage): Promise<void> {
+    if (this.syncBlocked) return;
+
     if (msg.type === 'sync_meta') {
-      this.notePeerMetadata(msg.sentAt, msg.appVersion);
+      this.notePeerMetadata(msg.sentAt, msg.appVersion, msg.protocolVersion);
       return;
     }
 
     if (msg.type === 'full_state') {
-      if (msg.sentAt) this.notePeerMetadata(msg.sentAt, msg.appVersion);
-      for (const list of msg.packLists) {
-        await putPackListDirect(list);
-      }
-      for (const packing of msg.packings) {
-        await mergeAndPutPacking(packing);
-      }
-      await gcTombstones();
-      tickDbVersion();
+      if (msg.sentAt) notePeerSentAt(msg.sentAt);
+      if (msg.appVersion) this.peerAppVersion = msg.appVersion;
+      if (msg.protocolVersion !== undefined) this.peerProtocolVersion = msg.protocolVersion;
+      this.reconcilePeerProtocol(msg.protocolVersion);
+      if (this.syncBlocked) return;
+      await applyFullState(msg);
+      tickDbVersion([{ kind: 'bulk' }]);
       return;
     }
 
-    await this.applyRemote(msg);
-    tickDbVersion();
-  }
-
-  private async applyRemote(msg: SyncMessage): Promise<void> {
-    switch (msg.type) {
-      case 'save_pack_list':
-        await putPackListDirect(msg.data);
-        break;
-      case 'update_pack_list_sort_orders':
-        for (const { id, sortOrder, updatedAt } of msg.updates) {
-          await putPackListSortOrderDirect(id, sortOrder, updatedAt);
-        }
-        break;
-      case 'update_pack_list_major':
-        await putPackListMajorDirect(msg.id, msg.isMajor, msg.updatedAt);
-        break;
-      case 'create_packing':
-        await mergeAndPutPacking(msg.data);
-        break;
-      case 'update_packing_meta':
-        await updatePackingMetaDirect(msg.id, msg.name, msg.fromDate, msg.toDate, msg.updatedAt);
-        break;
-      case 'update_packing_item':
-        await updatePackingItemDirect(msg.packingId, msg.listId, msg.text, msg.status, msg.updatedAt);
-        break;
-      case 'add_packing_item':
-        await addPackingItemDirect(msg.packingId, msg.text);
-        break;
-      case 'delete_pack_list':
-        await deletePackListDirect(msg.id, msg.deletedAt, msg.updatedAt);
-        break;
-      case 'delete_packing':
-        await deletePackingDirect(msg.id, msg.deletedAt, msg.updatedAt);
-        break;
-    }
+    await applyIncrementalSyncMessage(msg);
+    const changes = dbChangesForMessage(msg);
+    if (changes.length > 0) tickDbVersion(changes);
   }
 }

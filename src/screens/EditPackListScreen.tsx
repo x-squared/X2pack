@@ -1,17 +1,20 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   getAllPackLists,
   getPackList,
   savePackList,
   hasCircularReference,
 } from '../db/packLists.js';
-import { subscribeDbVersion, getDbVersion } from '../sync/dbVersion.js';
+import { useDbReload } from '../hooks/useDbReload.js';
+import { isPackListChange } from '../sync/dbVersion.js';
+import DbLoadError from '../components/DbLoadError.js';
 import type { PackList, Screen } from '../types/index.js';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import './EditPackListScreen.css';
+import '../components/DbLoadError.css';
 
 type Props = {
   readonly listId: string | null;
@@ -146,12 +149,13 @@ export default function EditPackListScreen({
 
   const isNew = listId === null;
   const nameInvalid = nameTouched && !name.trim();
-  const dbVersion = useSyncExternalStore(subscribeDbVersion, getDbVersion);
 
-  useEffect(() => {
+  const { loadError, retry } = useDbReload(() => {
     if (dirtyRef.current) return;
-    void load();
-  }, [listId, dbVersion]);
+    return load();
+  }, [listId], {
+    isRelevant: (changes) => isPackListChange(changes, listId),
+  });
 
   async function load(): Promise<void> {
     const all = await getAllPackLists();
@@ -340,6 +344,10 @@ export default function EditPackListScreen({
       </header>
 
       <main className="edit-list-screen__content">
+        {loadError ? (
+          <DbLoadError onRetry={retry} />
+        ) : (
+        <>
         {error && <p className="edit-list-screen__error">{error}</p>}
 
         <section className="edit-list-screen__section">
@@ -424,6 +432,8 @@ export default function EditPackListScreen({
               </SortableContext>
             </DndContext>
           </section>
+        )}
+        </>
         )}
       </main>
     </div>

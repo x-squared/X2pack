@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { encodeForQR, decodeFromQR, filterHostCandidates } from './protocol.js';
+import {
+  encodeForQR,
+  decodeFromQR,
+  filterHostCandidates,
+  SYNC_PROTOCOL_VERSION,
+  assessProtocolCompatibility,
+  protocolMismatchMessage,
+} from './protocol.js';
 
 describe('encodeForQR / decodeFromQR', () => {
   it('round-trips an SDP string', () => {
@@ -74,5 +81,30 @@ describe('filterHostCandidates', () => {
     expect(result).not.toContain('203.0.113.5');
     expect(result).not.toContain('198.51.100.1');
     expect(result).not.toContain('::1');
+  });
+});
+
+describe('SYNC_PROTOCOL_VERSION and assessProtocolCompatibility', () => {
+  it('current version is 2', () => {
+    expect(SYNC_PROTOCOL_VERSION).toBe(2);
+  });
+
+  it('matches same version', () => {
+    expect(assessProtocolCompatibility(2)).toBe('ok');
+    expect(protocolMismatchMessage(2)).toBe('');
+  });
+
+  it('warns when peer omits protocolVersion', () => {
+    expect(assessProtocolCompatibility(undefined)).toBe('warn');
+    expect(protocolMismatchMessage(undefined)).toMatch(/older version/);
+  });
+
+  it('warns when peer is on an older protocol', () => {
+    expect(assessProtocolCompatibility(0)).toBe('warn');
+  });
+
+  it('rejects newer incompatible protocol', () => {
+    expect(assessProtocolCompatibility(99)).toBe('incompatible');
+    expect(protocolMismatchMessage(99)).toMatch(/Cannot sync/);
   });
 });

@@ -6,6 +6,7 @@ describe('renderHelpContent', () => {
   it('renders section headings from help.md', () => {
     const html = renderHelpContent(helpMarkdown);
     expect(html).toContain('<h2>Lists and packing</h2>');
+    expect(html).toContain('<h2>When you change a list</h2>');
     expect(html).toContain('<h2>Syncing with another phone</h2>');
   });
 

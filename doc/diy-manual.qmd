@@ -298,11 +298,36 @@ All data lives in IndexedDB in the browser — there is no server-side database.
 | `packLists` | `id` (UUID) | Predefined, reusable packing lists    |
 | `packings`  | `id` (UUID) | Active and completed packing sessions |
 
-The DB is initialised automatically on first launch. There is no migration step — the schema is defined once in `src/db/db.ts`.
+The DB is opened in `src/db/db.ts` via `idb`'s `openDB`. **Current schema version: 2.**
+
+On first launch (version 0 → current), object stores are created. On upgrade from an older version, the `upgrade` handler runs data migrations inside a single version-change transaction.
 
 **To wipe all data** (development / reset):
 
 Open Chrome DevTools → Application → Storage → click **Clear site data**.
+
+### Schema bumps
+
+When a schema or stored shape change requires migrating existing rows:
+
+1. **Bump the version** in `openDB('x2pack', N, …)` in `src/db/db.ts` (currently `2`).
+2. **Add a gated block** — migrations are cumulative; never remove old blocks:
+
+   ```{ts}
+   if (oldVersion < 3) {
+     // migrate v2 → v3
+   }
+   ```
+
+3. **Keep all migration work inside the upgrade transaction.** Do not `await` across async gaps in the migration path — Firefox auto-commits the transaction when the upgrade callback returns. For row-by-row rewrites, use a **raw IDB cursor** with `onsuccess` / `cursor.continue()` (see the v1→v2 `date` → `fromDate`/`toDate` migration in `db.ts`).
+4. **Add a test** in `src/db/db.test.ts`: seed a DB at the previous version with representative legacy rows, open via `getDb()`, assert the migrated shape.
+5. **Update types** in `src/types/index.ts` and any sync/protocol docs if the wire shape changes.
+
+There is no separate migration registry — each bump is an `if (oldVersion < N)` block in `db.ts`. Structural changes (e.g. splitting `Packing.items` into its own store) follow the same pattern but may need a cursor that reads one store and writes another within the same transaction.
+
+Multi-tab upgrades: `blocking` closes stale connections; `blocked` logs when another tab holds an old connection. Users may need to close extra tabs if an upgrade stalls.
+
+See also `dev/rules/data-model.mdc` (DB layer + schema section).
 
 ------------------------------------------------------------------------
 

@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { getDbVersion, tickDbVersion, subscribeDbVersion } from './dbVersion.js';
+import {
+  getDbVersion,
+  tickDbVersion,
+  subscribeDbVersion,
+  getDbChangesSince,
+  getDbChangesAt,
+  isPackingChange,
+  isAnyPackListChange,
+} from './dbVersion.js';
 
 // The module is a singleton — version accumulates across tests in this file.
 // All tests use relative assertions (before/after) so order doesn't matter.
@@ -25,6 +33,31 @@ describe('getDbVersion / tickDbVersion', () => {
     tickDbVersion();
     tickDbVersion();
     expect(getDbVersion()).toBe(before + 3);
+  });
+
+  it('records typed changes per version tick', () => {
+    const before = getDbVersion();
+    tickDbVersion([{ kind: 'packing', packingId: 'p1', aspect: 'item' }]);
+    expect(getDbChangesAt(before + 1)).toEqual([
+      { kind: 'packing', packingId: 'p1', aspect: 'item' },
+    ]);
+  });
+
+  it('getDbChangesSince unions changes across ticks', () => {
+    const before = getDbVersion();
+    tickDbVersion([{ kind: 'packing', packingId: 'p1', aspect: 'item' }]);
+    tickDbVersion([{ kind: 'pack_list', listId: 'l1', aspect: 'sort' }]);
+    expect(getDbChangesSince(before, before + 2)).toEqual([
+      { kind: 'packing', packingId: 'p1', aspect: 'item' },
+      { kind: 'pack_list', listId: 'l1', aspect: 'sort' },
+    ]);
+  });
+
+  it('relevance helpers distinguish entity types', () => {
+    const itemChange = [{ kind: 'packing', packingId: 'p1', aspect: 'item' }] as const;
+    expect(isPackingChange(itemChange, 'p1')).toBe(true);
+    expect(isPackingChange(itemChange, 'p2')).toBe(false);
+    expect(isAnyPackListChange(itemChange)).toBe(false);
   });
 });
 

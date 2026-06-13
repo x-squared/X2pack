@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { getAllPackLists } from '../db/packLists.js';
 import { createPacking } from '../db/packings.js';
 import type { PackList, Screen } from '../types/index.js';
+import DbLoadError from '../components/DbLoadError.js';
+import { useDbReload } from '../hooks/useDbReload.js';
+import { isAnyPackListChange } from '../sync/dbVersion.js';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import './NewPackingScreen.css';
+import '../components/DbLoadError.css';
 
 type Props = {
   readonly onNavigate: (screen: Screen) => void;
@@ -59,16 +63,15 @@ export default function NewPackingScreen({ onNavigate }: Props): React.ReactElem
     : null;
   const canStart = !!name.trim() && selectedListIds.length > 0 && datesValid;
 
-  useEffect(() => {
-    void getAllPackLists().then((lists) =>
-      setAllLists(
-        lists.toSorted((a, b) => {
-          const diff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
-          return diff === 0 ? a.name.localeCompare(b.name) : diff;
-        }),
-      ),
+  const { loadError, retry } = useDbReload(async () => {
+    const lists = await getAllPackLists();
+    setAllLists(
+      lists.toSorted((a, b) => {
+        const diff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+        return diff === 0 ? a.name.localeCompare(b.name) : diff;
+      }),
     );
-  }, []);
+  }, [], { isRelevant: isAnyPackListChange });
 
   function handleToggle(id: string): void {
     setSelectedListIds((prev) =>
@@ -114,6 +117,10 @@ export default function NewPackingScreen({ onNavigate }: Props): React.ReactElem
       </header>
 
       <main className="new-packing-screen__content">
+        {loadError ? (
+          <DbLoadError onRetry={retry} />
+        ) : (
+        <>
         {error && <p className="new-packing-screen__error">{error}</p>}
 
         <section className="new-packing-screen__section">
@@ -224,6 +231,8 @@ export default function NewPackingScreen({ onNavigate }: Props): React.ReactElem
         >
           Start Packing
         </button>
+        </>
+        )}
       </main>
     </div>
   );

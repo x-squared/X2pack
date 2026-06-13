@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { subscribeDbVersion, getDbVersion } from '../sync/dbVersion.js';
+import { useEffect, useRef, useState } from 'react';
 import { getAllPackLists, deletePackList, isDependedUpon, updatePackListSortOrders, savePackList, updatePackListMajor } from '../db/packLists.js';
 import type { PackList, Screen } from '../types/index.js';
 import ConfirmDialog from '../components/ConfirmDialog.js';
+import DbLoadError from '../components/DbLoadError.js';
 import { downloadPackLists, resolveImport } from '../utils/packListsIO.js';
+import { useDbReload } from '../hooks/useDbReload.js';
+import { isAnyPackListChange } from '../sync/dbVersion.js';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import '../components/ConfirmDialog.css';
+import '../components/DbLoadError.css';
 import './ListsScreen.css';
 
 type Props = {
@@ -138,11 +141,9 @@ export default function ListsScreen({ onNavigate, onBack }: Props): React.ReactE
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
-  const dbVersion = useSyncExternalStore(subscribeDbVersion, getDbVersion);
-
-  useEffect(() => {
-    void loadLists();
-  }, [dbVersion]);
+  const { loadError, retry } = useDbReload(() => loadLists(), [], {
+    isRelevant: isAnyPackListChange,
+  });
 
   async function loadLists(): Promise<void> {
     await flushPendingPackListSave();
@@ -267,7 +268,9 @@ export default function ListsScreen({ onNavigate, onBack }: Props): React.ReactE
       </header>
 
       <main className="lists-screen__content">
-        {lists.length === 0 ? (
+        {loadError ? (
+          <DbLoadError onRetry={retry} />
+        ) : lists.length === 0 ? (
           <p className="lists-screen__empty">
             No lists yet. Tap <strong>+</strong> to create your first pack list.
           </p>

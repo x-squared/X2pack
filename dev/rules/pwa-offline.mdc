@@ -4,7 +4,7 @@
 
 Managed by `vite-plugin-pwa` (Workbox under the hood). Configuration lives in `vite.config.ts`.
 
-- `registerType: 'prompt'` — the SW does not self-activate. When an update is detected, the app shows an `UpdatePrompt` banner inviting the user to refresh.
+- `registerType: 'autoUpdate'` — when a new service worker is ready, it activates immediately (`skipWaiting: true` in Workbox config). The app shows an `UpdatePrompt` banner when `needRefresh` is true so the user can reload into the new version.
 - `globPatterns` caches all JS, CSS, HTML, images, and fonts produced by the build.
 - Runtime caching (CacheFirst) is configured for Google Fonts if used.
 

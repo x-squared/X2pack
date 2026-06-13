@@ -17,6 +17,8 @@ type PackList = {
   name: string;
   items: readonly string[];          // ordered list of item text strings
   referencedListIds: readonly string[]; // IDs of other PackLists included by this list
+  sortOrder?: number;
+  isMajor?: boolean;
   createdAt: string;                 // ISO 8601
   updatedAt: string;                 // bumped on every syncable write (LWW)
   deletedAt?: string;                // soft-delete tombstone; hidden from UI, synced on reconnect
@@ -31,10 +33,10 @@ type PackList = {
 ## Packing
 
 ```ts
-type PackingItemStatus = 'pending' | 'packed' | 'discarded';
+type PackingItemStatus = 'pending' | 'packed' | 'discarded' | 'not_used';
 
 type PackingItem = {
-  listId: string;   // source PackList id
+  listId: string;   // source PackList id, or '__additional__' for ad-hoc items
   text: string;
   status: PackingItemStatus;
 };
@@ -44,7 +46,8 @@ type PackingStatus = 'active' | 'done';
 type Packing = {
   id: string;
   name: string;
-  date: string;                      // ISO 8601 date (YYYY-MM-DD)
+  fromDate: string;                  // ISO 8601 date (YYYY-MM-DD)
+  toDate: string;                    // ISO 8601 date (YYYY-MM-DD)
   packListIds: readonly string[];    // selected root pack-lists
   items: readonly PackingItem[];     // expanded and frozen at creation
   status: PackingStatus;
@@ -63,7 +66,8 @@ When a Packing is created, `packListIds` is resolved recursively:
 
 ### Status transitions
 
-- `active` → `done` automatically when all items are `packed` or `discarded`.
+- `active` → `done` automatically when no items remain `pending`.
+- Item status cycles: `pending` → `packed` → `discarded` → `not_used` → `pending`.
 - A Packing is discarded by deletion, not by a status field.
 
 ## DB layer
@@ -71,9 +75,30 @@ When a Packing is created, `packListIds` is resolved recursively:
 All DB access goes through `src/db/`. Never call `idb` directly from a screen or component.
 Functions follow verb-first naming: `getPackList`, `savePackList`, `deletePackList`, `getAllPackings`, etc.
 
+Opening the database is centralised in `src/db/db.ts` (`getDb()`). **Current IndexedDB schema version: 2.**
+
+### Schema bumps
+
+Bump the version in `openDB('x2pack', N, …)` and add `if (oldVersion < N) { … }` inside the `upgrade` callback. Existing migrations:
+
+| Version | Change |
+|---|---|
+| 1 | Create `packLists` and `packings` object stores |
+| 2 | Rename legacy packing `date` → `fromDate` / `toDate` |
+
+Rules for new migrations:
+
+- **Cumulative blocks only** — never delete an old `oldVersion < N` block; users may upgrade from any prior version.
+- **Stay inside the upgrade transaction** — no `async`/`await` in the migration path; use raw IDB cursors (`unwrap(transaction).objectStore(…)`, `onsuccess`, `cursor.continue()`) so Firefox does not auto-commit early.
+- **Test with fake-indexeddb** — seed at `N-1` in `db.test.ts`, call `getDb()`, assert migrated records.
+- **Sync impact** — if stored shape or store layout affects P2P, update `protocol.ts`, `syncHandlers.ts`, and `syncArchitecture.ts` in the same change.
+
+There is no migration module per version; keep blocks in `db.ts` unless a bump grows large enough to extract a named helper called synchronously from the upgrade callback.
+
 ## P2P sync (local)
 
 Phones on the same network can sync in real time over WebRTC. Full architecture (pairing, wire protocol, LWW, soft deletes, item union merge): **`src/sync/syncArchitecture.ts`**.
 
 - User writes → `emitSync` → DataChannel → peer applies via `*Direct` helpers.
 - `getAll*ForSync()` includes soft-deleted tombstones for reconnect; `getAll*()` filters them for UI.
+- Sync messages include `protocolVersion`; peers warn or reject on mismatch (see `src/sync/protocol.ts`).

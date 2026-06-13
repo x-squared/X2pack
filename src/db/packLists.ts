@@ -201,6 +201,7 @@ export function resolveLeafLists(
       leaves.push(list);
     }
     for (const refId of list.referencedListIds) {
+      if (refId === id) continue;
       visit(refId);
     }
   }

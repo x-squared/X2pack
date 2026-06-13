@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { putPackListDirect, getAllPackLists, deletePackListDirect } from '../db/packLists.js';
 import { mergeAndPutPacking, getAllPackings, updatePackingItemDirect } from '../db/packings.js';
-import { mockDb } from '../db/mockDb.js';
+import { mockDb, requireStored } from '../db/mockDb.js';
 import type { PackList, Packing } from '../types/index.js';
 
 vi.mock('../db/db.js', async () => {
@@ -56,7 +56,7 @@ describe('sync reconnect integration (db layer)', () => {
       name: 'Toiletries (updated)',
       updatedAt: '2026-01-03T00:00:00Z',
     });
-    const stored = await mockDb.get('packLists', list.id);
+    const stored = requireStored(await mockDb.get('packLists', list.id), `pack list ${list.id}`);
     expect(stored.deletedAt).toBeUndefined();
     expect(stored.name).toBe('Toiletries (updated)');
   });
@@ -86,13 +86,13 @@ describe('sync reconnect integration (db layer)', () => {
       'packed',
       '2026-01-02T00:00:00Z',
     );
-    const stored: Packing = await mockDb.get('packings', packing.id);
+    const stored = requireStored(await mockDb.get('packings', packing.id), `packing ${packing.id}`);
     expect(stored.items.find((i) => i.text === 'Toothbrush')!.status).toBe('packed');
     expect(stored.items.find((i) => i.text === 'Adaptor')!.status).toBe('pending');
   });
 
   it('deletePackListDirect on unknown id creates minimal tombstone', async () => {
     await deletePackListDirect('ghost', '2026-01-02T00:00:00Z', '2026-01-02T00:00:00Z');
-    expect((await mockDb.get('packLists', 'ghost')).deletedAt).toBe('2026-01-02T00:00:00Z');
+    expect(requireStored(await mockDb.get('packLists', 'ghost'), 'pack list ghost').deletedAt).toBe('2026-01-02T00:00:00Z');
   });
 });

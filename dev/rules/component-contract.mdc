@@ -14,6 +14,7 @@ Each component lives in its own `.tsx` file. Its CSS lives in a sibling `.css` f
 ## State
 
 - Component-local state via `useState`. Shared cross-screen state (active packings list) is reloaded from IndexedDB on each screen mount — no global mutable store.
+- Use `useDbReload(loadFn, extraDeps?)` from `src/hooks/useDbReload.ts` to reload when sync applies remote writes. It returns `{ loadError, loading, retry }` — show `<DbLoadError onRetry={retry} />` when `loadError` is true.
 
 ## Events
 

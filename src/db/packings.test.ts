@@ -12,7 +12,7 @@ import {
   updatePackingMetaDirect,
   updatePackingItemDirect,
 } from './packings.js';
-import { mockDb } from './mockDb.js';
+import { mockDb, requireStored } from './mockDb.js';
 import type { Packing, PackingItem } from '../types/index.js';
 import { emitSync } from '../sync/emitter.js';
 
@@ -70,8 +70,7 @@ describe('packings db', () => {
 
     it('persists the packing to the db', async () => {
       const p = await createPacking('Persisted', '2026-01-01', '2026-01-01', ['list-1']);
-      const stored = await mockDb.get('packings', p.id);
-      expect(stored).toBeDefined();
+      const stored = requireStored(await mockDb.get('packings', p.id), `packing ${p.id}`);
       expect(stored.name).toBe('Persisted');
     });
   });
@@ -169,7 +168,7 @@ describe('packings db', () => {
     it('appends when the item is new', async () => {
       await mockDb.put('packings', makePacking({ id: 'p1' }));
       await addPackingItemDirect('p1', 'Sunscreen');
-      const stored = await mockDb.get('packings', 'p1');
+      const stored = requireStored(await mockDb.get('packings', 'p1'), 'packing p1');
       expect(stored.items).toHaveLength(1);
     });
 
@@ -179,7 +178,7 @@ describe('packings db', () => {
         items: [{ listId: '__additional__', text: 'Sunscreen', status: 'pending' }],
       }));
       await addPackingItemDirect('p1', 'Sunscreen');
-      const stored = await mockDb.get('packings', 'p1');
+      const stored = requireStored(await mockDb.get('packings', 'p1'), 'packing p1');
       expect(stored.items).toHaveLength(1);
     });
   });
@@ -188,7 +187,7 @@ describe('packings db', () => {
     it('updates metadata when remote is newer', async () => {
       await mockDb.put('packings', makePacking({ id: 'p1', name: 'Old', updatedAt: '2026-01-01T00:00:00Z' }));
       await updatePackingMetaDirect('p1', 'New', '2026-02-01', '2026-02-07', '2026-01-02T00:00:00Z');
-      const stored = await mockDb.get('packings', 'p1');
+      const stored = requireStored(await mockDb.get('packings', 'p1'), 'packing p1');
       expect(stored.name).toBe('New');
       expect(stored.updatedAt).toBe('2026-01-02T00:00:00Z');
     });
@@ -196,7 +195,7 @@ describe('packings db', () => {
     it('skips when remote is older than local', async () => {
       await mockDb.put('packings', makePacking({ id: 'p1', name: 'Local', updatedAt: '2026-01-02T00:00:00Z' }));
       await updatePackingMetaDirect('p1', 'Remote', '2026-01-01', '2026-01-07', '2026-01-01T00:00:00Z');
-      expect((await mockDb.get('packings', 'p1')).name).toBe('Local');
+      expect(requireStored(await mockDb.get('packings', 'p1'), 'packing p1').name).toBe('Local');
     });
   });
 
@@ -211,7 +210,7 @@ describe('packings db', () => {
         ],
       }));
       await updatePackingItemDirect('p1', 'l', 'Shirt', 'packed', '2026-01-02T00:00:00Z');
-      const stored = await mockDb.get('packings', 'p1');
+      const stored = requireStored(await mockDb.get('packings', 'p1'), 'packing p1');
       expect(stored.items.find((i: PackingItem) => i.text === 'Shirt')!.status).toBe('packed');
       expect(stored.items.find((i: PackingItem) => i.text === 'Pants')!.status).toBe('pending');
     });
@@ -223,7 +222,7 @@ describe('packings db', () => {
         items: [{ listId: 'l', text: 'Shirt', status: 'pending' }],
       }));
       await updatePackingItemDirect('p1', 'l', 'Shirt', 'packed', '2026-01-01T00:00:00Z');
-      expect((await mockDb.get('packings', 'p1')).items[0]!.status).toBe('pending');
+      expect(requireStored(await mockDb.get('packings', 'p1'), 'packing p1').items[0]!.status).toBe('pending');
     });
   });
 
@@ -233,7 +232,7 @@ describe('packings db', () => {
     it('soft-deletes and hides from getAllPackings', async () => {
       await mockDb.put('packings', makePacking({ id: 'p1' }));
       await deletePacking('p1');
-      expect((await mockDb.get('packings', 'p1')).deletedAt).toBeDefined();
+      expect(requireStored(await mockDb.get('packings', 'p1'), 'packing p1').deletedAt).toBeDefined();
       expect(await getAllPackings()).toHaveLength(0);
       expect(await getAllPackingsForSync()).toHaveLength(1);
     });
@@ -252,7 +251,7 @@ describe('packings db', () => {
     it('soft-deletes when remote is newer', async () => {
       await mockDb.put('packings', makePacking({ id: 'p1', updatedAt: '2026-01-01T00:00:00Z' }));
       await deletePackingDirect('p1', '2026-01-02T00:00:00Z', '2026-01-02T00:00:00Z');
-      expect((await mockDb.get('packings', 'p1')).deletedAt).toBe('2026-01-02T00:00:00Z');
+      expect(requireStored(await mockDb.get('packings', 'p1'), 'packing p1').deletedAt).toBe('2026-01-02T00:00:00Z');
     });
   });
 
@@ -262,7 +261,7 @@ describe('packings db', () => {
     it('inserts when no local copy exists', async () => {
       const remote = makePacking({ id: 'p1', name: 'Remote Trip' });
       await mergeAndPutPacking(remote);
-      const stored = await mockDb.get('packings', 'p1');
+      const stored = requireStored(await mockDb.get('packings', 'p1'), 'packing p1');
       expect(stored.name).toBe('Remote Trip');
     });
 
@@ -271,7 +270,7 @@ describe('packings db', () => {
       const remote = makePacking({ id: 'p1', name: 'New', updatedAt: '2026-01-02T00:00:00Z' });
       await mockDb.put('packings', local);
       await mergeAndPutPacking(remote);
-      expect((await mockDb.get('packings', 'p1')).name).toBe('New');
+      expect(requireStored(await mockDb.get('packings', 'p1'), 'packing p1').name).toBe('New');
     });
 
     it('keeps the newer local version (metadata)', async () => {
@@ -279,7 +278,7 @@ describe('packings db', () => {
       const remote = makePacking({ id: 'p1', name: 'Remote', updatedAt: '2026-01-01T00:00:00Z' });
       await mockDb.put('packings', local);
       await mergeAndPutPacking(remote);
-      expect((await mockDb.get('packings', 'p1')).name).toBe('Local');
+      expect(requireStored(await mockDb.get('packings', 'p1'), 'packing p1').name).toBe('Local');
     });
 
     it('union-merges items from both sides', async () => {
@@ -296,7 +295,7 @@ describe('packings db', () => {
       await mockDb.put('packings', local);
       await mergeAndPutPacking(remote);
 
-      const stored: Packing = await mockDb.get('packings', 'p1');
+      const stored = requireStored(await mockDb.get('packings', 'p1'), 'packing p1');
       const texts = stored.items.map((i) => i.text);
       expect(texts).toContain('Shirt');
       expect(texts).toContain('Pants');
@@ -318,7 +317,7 @@ describe('packings db', () => {
       await mockDb.put('packings', local);
       await mergeAndPutPacking(remote);
 
-      const stored: Packing = await mockDb.get('packings', 'p1');
+      const stored = requireStored(await mockDb.get('packings', 'p1'), 'packing p1');
       expect(stored.items.find((i) => i.text === 'Shirt')!.status).toBe('packed');
     });
 
@@ -337,7 +336,7 @@ describe('packings db', () => {
       await mockDb.put('packings', local);
       await mergeAndPutPacking(remote);
 
-      const stored: Packing = await mockDb.get('packings', 'p1');
+      const stored = requireStored(await mockDb.get('packings', 'p1'), 'packing p1');
       expect(stored.items.find((i) => i.text === 'Shirt')!.status).toBe('packed');
     });
 
@@ -350,7 +349,7 @@ describe('packings db', () => {
       });
       await mockDb.put('packings', local);
       await mergeAndPutPacking(remote);
-      expect((await mockDb.get('packings', 'p1')).deletedAt).toBe('2026-01-02T00:00:00Z');
+      expect(requireStored(await mockDb.get('packings', 'p1'), 'packing p1').deletedAt).toBe('2026-01-02T00:00:00Z');
     });
 
     it('bumps updatedAt when item union merge changes items', async () => {
@@ -366,7 +365,7 @@ describe('packings db', () => {
       });
       await mockDb.put('packings', local);
       await mergeAndPutPacking(remote);
-      const stored: Packing = await mockDb.get('packings', 'p1');
+      const stored = requireStored(await mockDb.get('packings', 'p1'), 'packing p1');
       expect(stored.items.map((i) => i.text)).toContain('Pants');
       expect(stored.updatedAt >= '2026-01-02T00:00:00Z').toBe(true);
     });

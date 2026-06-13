@@ -8,7 +8,7 @@ vi.mock('./components/UpdatePrompt.js', () => ({
   default: () => null,
 }));
 
-vi.mock('./components/SyncStatusButton.js', () => ({
+vi.mock('./components/SyncButton.js', () => ({
   default: () => null,
 }));
 

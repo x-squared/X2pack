@@ -76,6 +76,7 @@ const MOCK_SDP = [
 
 type MockChannel = {
   readyState: RTCDataChannelState;
+  bufferedAmount: number;
   send: ReturnType<typeof vi.fn>;
   close: ReturnType<typeof vi.fn>;
   onopen: ((ev: Event) => void) | null;
@@ -94,6 +95,7 @@ beforeEach(() => {
 
   mockChannel = {
     readyState: 'open',
+    bufferedAmount: 0,
     send: vi.fn(),
     close: vi.fn(),
     onopen: null,
@@ -132,9 +134,23 @@ async function makeConnectedManager(): Promise<WebRTCManager> {
   return manager;
 }
 
-/** Send a message through the mock DataChannel to the manager. */
-function triggerMessage(msg: object): void {
-  mockChannel.onmessage?.({ data: JSON.stringify(msg) } as MessageEvent);
+/** Send a sequenced envelope through the mock DataChannel to the manager. */
+function triggerEnvelope(
+  payload: object,
+  opts: { sessionId?: string; seq?: number } = {},
+): void {
+  mockChannel.onmessage?.({
+    data: JSON.stringify({
+      sessionId: opts.sessionId ?? 'peer-session',
+      seq: opts.seq ?? 1,
+      payload,
+    }),
+  } as MessageEvent);
+}
+
+function parseLastSend(): { sessionId: string; seq: number; payload: Record<string, unknown> } {
+  const raw = mockChannel.send.mock.calls.at(-1)![0];
+  return JSON.parse(String(raw)) as { sessionId: string; seq: number; payload: Record<string, unknown> };
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -206,14 +222,17 @@ describe('WebRTCManager — send', () => {
     const manager = await makeConnectedManager();
     const msg = { type: 'delete_pack_list', id: 'x', deletedAt: 't', updatedAt: 't' } as const;
     manager.send(msg);
-    expect(mockChannel.send).toHaveBeenCalledWith(JSON.stringify(msg));
+    const sent = parseLastSend();
+    expect(sent.payload).toEqual(msg);
+    expect(sent.seq).toBeGreaterThan(0);
+    expect(sent.sessionId).toBeTruthy();
   });
 
   it('is a no-op when channel is closed', async () => {
     const manager = await makeConnectedManager();
     mockChannel.readyState = 'closed';
     mockChannel.send.mockClear(); // discard sendFullState call from onopen
-    manager.send({ type: 'delete_pack_list', id: 'x' });
+    manager.send({ type: 'delete_pack_list', id: 'x', deletedAt: 't', updatedAt: 't' });
     expect(mockChannel.send).not.toHaveBeenCalled();
   });
 });
@@ -281,7 +300,7 @@ describe('WebRTCManager — onMessage: full_state', () => {
   it('calls putPackListDirect for every received list', async () => {
     const manager = await makeConnectedManager();
     const list = { id: 'l1', name: 'Clothes', items: [], referencedListIds: [], createdAt: '', updatedAt: '' };
-    triggerMessage({ type: 'full_state', packLists: [list], packings: [] });
+    triggerEnvelope({ type: 'full_state', packLists: [list], packings: [] });
     await flush();
     expect(putPackListDirect).toHaveBeenCalledWith(list);
   });
@@ -289,7 +308,7 @@ describe('WebRTCManager — onMessage: full_state', () => {
   it('calls mergeAndPutPacking for every received packing', async () => {
     const manager = await makeConnectedManager();
     const packing = { id: 'p1', name: 'Trip', fromDate: '', toDate: '', packListIds: [], items: [], status: 'active', createdAt: '', updatedAt: '' };
-    triggerMessage({ type: 'full_state', packLists: [], packings: [packing] });
+    triggerEnvelope({ type: 'full_state', packLists: [], packings: [packing] });
     await flush();
     expect(mergeAndPutPacking).toHaveBeenCalledWith(packing);
   });
@@ -297,14 +316,14 @@ describe('WebRTCManager — onMessage: full_state', () => {
   it('ticks the db version after merging', async () => {
     const manager = await makeConnectedManager();
     vi.mocked(tickDbVersion).mockClear();
-    triggerMessage({ type: 'full_state', sentAt: '2026-06-01T12:00:00.000Z', packLists: [], packings: [] });
+    triggerEnvelope({ type: 'full_state', sentAt: '2026-06-01T12:00:00.000Z', packLists: [], packings: [] });
     await flush();
     expect(tickDbVersion).toHaveBeenCalledOnce();
   });
 
   it('runs tombstone GC after merge', async () => {
     const manager = await makeConnectedManager();
-    triggerMessage({ type: 'full_state', packLists: [], packings: [] });
+    triggerEnvelope({ type: 'full_state', packLists: [], packings: [] });
     await flush();
     expect(gcTombstones).toHaveBeenCalledOnce();
   });
@@ -313,7 +332,7 @@ describe('WebRTCManager — onMessage: full_state', () => {
     await makeConnectedManager();
     const receivedAt = Date.parse('2026-06-01T12:00:00.000Z');
     vi.spyOn(Date, 'now').mockReturnValue(receivedAt);
-    triggerMessage({ type: 'full_state', sentAt: '2026-06-01T12:00:05.000Z', packLists: [], packings: [] });
+    triggerEnvelope({ type: 'full_state', sentAt: '2026-06-01T12:00:05.000Z', packLists: [], packings: [] });
     await flush();
     expect(getPeerSkewMs()).toBe(5000);
     vi.mocked(Date.now).mockRestore();
@@ -326,20 +345,41 @@ describe('WebRTCManager — onMessage: full_state', () => {
     await flush();
     expect(tickDbVersion).not.toHaveBeenCalled();
   });
+
+  it('warns but applies full_state when peer omits protocolVersion', async () => {
+    const manager = await makeConnectedManager();
+    triggerEnvelope({ type: 'full_state', packLists: [], packings: [] });
+    await flush();
+    expect(manager.getProtocolMismatch()).toMatch(/older version/);
+    expect(tickDbVersion).toHaveBeenCalledOnce();
+  });
+
+  it('rejects incompatible protocolVersion on sync_meta', async () => {
+    const manager = await makeConnectedManager();
+    triggerEnvelope({
+      type: 'sync_meta',
+      sentAt: '2026-06-01T12:00:00.000Z',
+      appVersion: '9.9.9',
+      protocolVersion: 99,
+    });
+    await flush();
+    expect(manager.getPhase()).toBe('error');
+    expect(manager.getProtocolMismatch()).toMatch(/Cannot sync/);
+  });
 });
 
 describe('WebRTCManager — onMessage: individual message types', () => {
   it('save_pack_list → putPackListDirect', async () => {
     const manager = await makeConnectedManager();
     const list = { id: 'l1', name: 'Test', items: [], referencedListIds: [], createdAt: '', updatedAt: '' };
-    triggerMessage({ type: 'save_pack_list', data: list });
+    triggerEnvelope({ type: 'save_pack_list', data: list });
     await flush();
     expect(putPackListDirect).toHaveBeenCalledWith(list);
   });
 
   it('update_pack_list_sort_orders → putPackListSortOrderDirect for each entry', async () => {
     const manager = await makeConnectedManager();
-    triggerMessage({
+    triggerEnvelope({
       type: 'update_pack_list_sort_orders',
       updates: [
         { id: 'l1', sortOrder: 10, updatedAt: '2026-01-02' },
@@ -353,14 +393,14 @@ describe('WebRTCManager — onMessage: individual message types', () => {
 
   it('update_pack_list_major → putPackListMajorDirect', async () => {
     const manager = await makeConnectedManager();
-    triggerMessage({ type: 'update_pack_list_major', id: 'l1', isMajor: true, updatedAt: '2026-01-02' });
+    triggerEnvelope({ type: 'update_pack_list_major', id: 'l1', isMajor: true, updatedAt: '2026-01-02' });
     await flush();
     expect(putPackListMajorDirect).toHaveBeenCalledWith('l1', true, '2026-01-02');
   });
 
   it('delete_pack_list → deletePackListDirect', async () => {
     const manager = await makeConnectedManager();
-    triggerMessage({
+    triggerEnvelope({
       type: 'delete_pack_list',
       id: 'l1',
       deletedAt: '2026-01-02',
@@ -373,14 +413,14 @@ describe('WebRTCManager — onMessage: individual message types', () => {
   it('create_packing → mergeAndPutPacking', async () => {
     const manager = await makeConnectedManager();
     const packing = { id: 'p1', name: 'Trip', fromDate: '', toDate: '', packListIds: [], items: [], status: 'active', createdAt: '', updatedAt: '' };
-    triggerMessage({ type: 'create_packing', data: packing });
+    triggerEnvelope({ type: 'create_packing', data: packing });
     await flush();
     expect(mergeAndPutPacking).toHaveBeenCalledWith(packing);
   });
 
   it('update_packing_meta → updatePackingMetaDirect', async () => {
     const manager = await makeConnectedManager();
-    triggerMessage({
+    triggerEnvelope({
       type: 'update_packing_meta',
       id: 'p1',
       name: 'New',
@@ -400,7 +440,7 @@ describe('WebRTCManager — onMessage: individual message types', () => {
 
   it('update_packing_meta → no-op when packing does not exist', async () => {
     const manager = await makeConnectedManager();
-    triggerMessage({
+    triggerEnvelope({
       type: 'update_packing_meta',
       id: 'ghost',
       name: 'X',
@@ -414,7 +454,7 @@ describe('WebRTCManager — onMessage: individual message types', () => {
 
   it('update_packing_item → updatePackingItemDirect', async () => {
     const manager = await makeConnectedManager();
-    triggerMessage({
+    triggerEnvelope({
       type: 'update_packing_item',
       packingId: 'p1',
       listId: 'l',
@@ -428,14 +468,14 @@ describe('WebRTCManager — onMessage: individual message types', () => {
 
   it('add_packing_item → addPackingItemDirect', async () => {
     const manager = await makeConnectedManager();
-    triggerMessage({ type: 'add_packing_item', packingId: 'p1', text: 'Sunscreen' });
+    triggerEnvelope({ type: 'add_packing_item', packingId: 'p1', text: 'Sunscreen' });
     await flush();
     expect(addPackingItemDirect).toHaveBeenCalledWith('p1', 'Sunscreen');
   });
 
   it('delete_packing → deletePackingDirect', async () => {
     const manager = await makeConnectedManager();
-    triggerMessage({
+    triggerEnvelope({
       type: 'delete_packing',
       id: 'p1',
       deletedAt: '2026-01-02',
@@ -448,7 +488,7 @@ describe('WebRTCManager — onMessage: individual message types', () => {
   it('every message type ticks the db version exactly once', async () => {
     const messages = [
       { type: 'save_pack_list', data: { id: 'l1', name: '', items: [], referencedListIds: [], createdAt: '', updatedAt: '' } },
-      { type: 'update_pack_list_sort_orders', updates: [] },
+      { type: 'update_pack_list_sort_orders', updates: [{ id: 'l1', sortOrder: 1, updatedAt: '2026-01-01T00:00:00Z' }] },
       { type: 'update_pack_list_major', id: 'l1', isMajor: false, updatedAt: '2026-01-01T00:00:00Z' },
       { type: 'delete_pack_list', id: 'l1', deletedAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' },
       { type: 'create_packing', data: { id: 'p1', name: '', fromDate: '', toDate: '', packListIds: [], items: [], status: 'active', createdAt: '', updatedAt: '' } },
@@ -461,7 +501,7 @@ describe('WebRTCManager — onMessage: individual message types', () => {
     for (const msg of messages) {
       const manager = await makeConnectedManager();
       vi.mocked(tickDbVersion).mockClear();
-      triggerMessage(msg);
+      triggerEnvelope(msg);
       await flush();
       expect(tickDbVersion, `${msg.type} should tick once`).toHaveBeenCalledOnce();
       manager.disconnect();
@@ -512,7 +552,7 @@ describe('WebRTCManager — setPairingError', () => {
 describe('WebRTCManager — sendFullState on connect', () => {
   it('sends sync_meta and full_state with local pack lists and packings', async () => {
     const lists = [{ id: 'l1', name: 'Clothes', items: [], referencedListIds: [], createdAt: '', updatedAt: '' }];
-    const packings = [{ id: 'p1', name: 'Trip', fromDate: '', toDate: '', packListIds: [], items: [], status: 'active', createdAt: '', updatedAt: '' }];
+    const packings = [{ id: 'p1', name: 'Trip', fromDate: '', toDate: '', packListIds: [], items: [], status: 'active' as const, createdAt: '', updatedAt: '' }];
     vi.mocked(getAllPackListsForSync).mockResolvedValueOnce(lists);
     vi.mocked(getAllPackingsForSync).mockResolvedValueOnce(packings);
 
@@ -522,14 +562,51 @@ describe('WebRTCManager — sendFullState on connect', () => {
     await flush();
 
     expect(mockChannel.send).toHaveBeenCalledTimes(2);
-    const meta = JSON.parse(String(mockChannel.send.mock.calls[0]![0]));
-    const state = JSON.parse(String(mockChannel.send.mock.calls[1]![0]));
-    expect(meta.type).toBe('sync_meta');
-    expect(meta.sentAt).toBeDefined();
-    expect(meta.appVersion).toBeDefined();
-    expect(state.type).toBe('full_state');
-    expect(state.packLists).toEqual(lists);
-    expect(state.packings).toEqual(packings);
-    expect(state.sentAt).toBe(meta.sentAt);
+    const metaWire = JSON.parse(String(mockChannel.send.mock.calls[0]![0]));
+    const stateWire = JSON.parse(String(mockChannel.send.mock.calls[1]![0]));
+    expect(metaWire.payload.type).toBe('sync_meta');
+    expect(metaWire.payload.sentAt).toBeDefined();
+    expect(metaWire.payload.appVersion).toBeDefined();
+    expect(metaWire.payload.protocolVersion).toBe(2);
+    expect(metaWire.seq).toBe(1);
+    expect(stateWire.payload.type).toBe('full_state');
+    expect(stateWire.payload.protocolVersion).toBe(2);
+    expect(stateWire.payload.packLists).toEqual(lists);
+    expect(stateWire.payload.packings).toEqual(packings);
+    expect(stateWire.payload.sentAt).toBe(metaWire.payload.sentAt);
+    expect(stateWire.seq).toBe(2);
+    expect(metaWire.sessionId).toBe(stateWire.sessionId);
+  });
+});
+
+describe('WebRTCManager — seq gap recovery', () => {
+  it('sends full_state when an incremental seq gap is detected', async () => {
+    await makeConnectedManager();
+    mockChannel.send.mockClear();
+
+    triggerEnvelope({ type: 'save_pack_list', data: { id: 'l1', name: '', items: [], referencedListIds: [], createdAt: '', updatedAt: '' } }, { seq: 1 });
+    await flush();
+
+    triggerEnvelope({ type: 'save_pack_list', data: { id: 'l2', name: '', items: [], referencedListIds: [], createdAt: '', updatedAt: '' } }, { seq: 3 });
+    await flush();
+
+    expect(putPackListDirect).toHaveBeenCalledTimes(1);
+    expect(mockChannel.send.mock.calls.length).toBeGreaterThanOrEqual(2);
+    const resyncWire = JSON.parse(String(mockChannel.send.mock.calls.at(-1)![0]));
+    expect(resyncWire.payload.type).toBe('full_state');
+  });
+
+  it('schedules resync when channel.send throws', async () => {
+    const manager = await makeConnectedManager();
+    mockChannel.send.mockClear();
+    mockChannel.send.mockImplementationOnce(() => {
+      throw new Error('QuotaExceededError');
+    });
+
+    manager.send({ type: 'delete_pack_list', id: 'x', deletedAt: 't', updatedAt: 't' });
+    await flush();
+
+    const calls = mockChannel.send.mock.calls.map((c) => JSON.parse(String(c[0])));
+    expect(calls.some((c) => c.payload.type === 'full_state')).toBe(true);
   });
 });

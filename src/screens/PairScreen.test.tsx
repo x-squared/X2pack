@@ -55,4 +55,13 @@ describe('PairScreen', () => {
     render(<PairScreen onClose={vi.fn()} />);
     expect(screen.getByText('Connected to another device')).toBeDefined();
   });
+
+  it('shows protocol mismatch warning when connected with version skew', () => {
+    vi.spyOn(manager, 'getPhase').mockReturnValue('connected');
+    vi.spyOn(manager, 'getProtocolMismatch').mockReturnValue(
+      'The other device is running an older version of X2pack.',
+    );
+    render(<PairScreen onClose={vi.fn()} />);
+    expect(screen.getByRole('alert').textContent).toMatch(/older version/);
+  });
 });

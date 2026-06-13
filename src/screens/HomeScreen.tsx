@@ -1,5 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
-import { subscribeDbVersion, getDbVersion } from '../sync/dbVersion.js';
+import { useEffect, useState } from 'react';
 import { getAllPackings, deletePacking } from '../db/packings.js';
 import type { Packing, Screen } from '../types/index.js';
 import ConfirmDialog from '../components/ConfirmDialog.js';
@@ -7,11 +6,15 @@ import HelpDialog from '../components/HelpDialog.js';
 import PwaInstallBanner from '../components/PwaInstallBanner.js';
 import WhatsNewDialog from '../components/WhatsNewDialog.js';
 import SyncButton from '../components/SyncButton.js';
+import DbLoadError from '../components/DbLoadError.js';
 import { getAllPackLists, savePackList } from '../db/packLists.js';
 import { resolveImport } from '../utils/packListsIO.js';
+import { useDbReload } from '../hooks/useDbReload.js';
+import { isAnyPackingChange } from '../sync/dbVersion.js';
 import exampleListsMd from '../example-lists.md?raw';
 import '../components/ConfirmDialog.css';
 import '../components/SyncButton.css';
+import '../components/DbLoadError.css';
 import './HomeScreen.css';
 
 type Props = {
@@ -28,11 +31,9 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
   const [showHelp, setShowHelp] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
 
-  const dbVersion = useSyncExternalStore(subscribeDbVersion, getDbVersion);
-
-  useEffect(() => {
-    void loadPackings();
-  }, [dbVersion]);
+  const { loadError, retry } = useDbReload(() => loadPackings(), [], {
+    isRelevant: isAnyPackingChange,
+  });
 
   useEffect(() => {
     if (!showInfo) return;
@@ -81,6 +82,10 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
       </header>
 
       <main className="home-screen__content">
+        {loadError ? (
+          <DbLoadError onRetry={retry} />
+        ) : (
+        <>
         <div className="home-screen__actions">
           <button
             className="btn btn--primary home-screen__action-btn"
@@ -133,6 +138,8 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
             No packings yet. Tap <strong>Pack</strong> to start one, or <strong>Lists</strong> to
             set up your pack lists.
           </p>
+        )}
+        </>
         )}
       </main>
 

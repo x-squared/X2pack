@@ -19,6 +19,10 @@ export default function PairScreen({ onClose }: Props): React.ReactElement {
     () => manager.getPhase(),
   );
   const error = manager.getError();
+  const protocolMismatch = useSyncExternalStore(
+    (fn) => manager.subscribe(fn),
+    () => manager.getProtocolMismatch(),
+  );
 
   // Track what phase was when this sheet opened — drives the "already connected" vs "just connected" distinction
   const phaseAtMount = useRef(phase);
@@ -242,7 +246,14 @@ export default function PairScreen({ onClose }: Props): React.ReactElement {
           <h2 className="pair-screen__title">Sync</h2>
           <button className="pair-screen__close-btn" onClick={handleClose} aria-label="Close">✕</button>
         </div>
-        <div className="pair-screen__body">{renderContent()}</div>
+        <div className="pair-screen__body">
+          {protocolMismatch && phase === 'connected' && (
+            <p className="pair-screen__warning pair-screen__protocol-warning" role="alert">
+              {protocolMismatch}
+            </p>
+          )}
+          {renderContent()}
+        </div>
       </div>
     </div>
   );

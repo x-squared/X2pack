@@ -21,6 +21,14 @@ Keep each list focused on one area. For a larger trip, create a main list and ad
   <div class="help__example-row help__example-row--sub">↳ Electronics — Charger, Earbuds</div>
 </div>
 
+## When you change a list
+
+When you **start a packing**, X2pack copies the items from your lists into a fixed checklist for that trip. That snapshot stays as-is while you pack — the list won't shift under you mid-trip.
+
+If you **edit a list afterward** (rename an item, remove it, add new ones), those changes apply to **future packings only**. A packing you already started still shows the items under their original names; renamed items appear twice (old name in the packing, new name only in the list).
+
+To pick up list changes, **discard the packing and start a new one**.
+
 ## During a packing
 
 Tap an item to cycle its state:
@@ -49,6 +57,7 @@ Tap the **chain-link icon** in the header to sync with another phone on the same
 - Checked-off items and ad-hoc additions are combined — nothing should disappear while connected.
 - If the link turns red, the connection was lost — your data stays on the phone; pair again to resume sync.
 - Changes made while disconnected are not shared until you pair again.
+- **Long gap between syncs:** deletions propagate when you pair — but if one phone hasn't synced for **about three months**, very old deletes may no longer transfer. A list or trip you removed on the other phone could reappear; delete it again on the stale device, or pair more often if you rely on two phones.
 
 Works on any local network. If there's no WiFi, one phone can share a personal **hotspot** — the other connects to it, then pair as usual. Some hotspots block phone-to-phone traffic; try regular WiFi if pairing fails.
 

@@ -17,6 +17,13 @@
  * Remote sync (different networks) is **not implemented** — it would need a
  * signaling server plus STUN/TURN for NAT traversal.
  *
+ * ### Sequence numbers (protocol v2+)
+ *
+ * Each DataChannel open gets a new `sessionId`. Outbound messages increment `seq`.
+ * If the receiver detects a gap (`seq` ≠ last + 1), it pushes `full_state` to
+ * recover. `full_state` is also always sent on connect. Send failures and a full
+ * outbound buffer trigger the same resync.
+ *
  * ---
  *
  * ## Pairing (local QR flow)
@@ -38,12 +45,13 @@
  *
  * ## Wire protocol (`SyncMessage`)
  *
- * All messages are JSON sent over the DataChannel. Types are defined in
+ * All messages are JSON sent over the DataChannel inside a sequenced envelope
+ * (`sessionId`, `seq`, `payload`). See `syncSeq.ts`. Types are defined in
  * `protocol.ts`.
  *
  * | Message | When sent |
  * |---------|-----------|
- * | `sync_meta` | On connect — `sentAt`, `appVersion` for clock skew |
+ * | `sync_meta` | On connect — `sentAt`, `appVersion`, `protocolVersion` for clock skew and compatibility |
  * | `full_state` | On connect — complete snapshot including tombstones (+ metadata) |
  * | `save_pack_list` | After `savePackList` |
  * | `update_pack_list_sort_orders` | After reordering lists (includes `updatedAt` per row) |
@@ -76,17 +84,18 @@
  *
  * ```
  * DataChannel.onmessage → WebRTCManager.onMessage → *Direct helpers → IndexedDB
- *                                                   → tickDbVersion()
+ *                                                   → tickDbVersion(changes)
  * ```
  *
  * - **`full_state`**: merges every list via `putPackListDirect`, every packing
  *   via `mergeAndPutPacking`.
  * - **Incremental messages**: routed to `*Direct` helpers in `packLists.ts` /
  *   `packings.ts`. These **never** call `emitSync` (avoids re-broadcast loops).
- * - After any remote apply, `tickDbVersion()` notifies subscribed screens.
+ * - After any remote apply, `tickDbVersion(changes)` notifies subscribed screens
+ *   with typed {@link DbChange} descriptors (packing/list IDs and aspect).
  *
  * Screens subscribe with `useSyncExternalStore(subscribeDbVersion, getDbVersion)`
- * and reload data when the version changes.
+ * and reload when changes are relevant to the mounted screen (`useDbReload`).
  *
  * ---
  *
@@ -156,9 +165,11 @@
  * |------|------|
  * | `syncArchitecture.ts` | This document |
  * | `protocol.ts` | `SyncMessage`, `PairingPhase`, SDP/QR helpers |
+ * | `syncSeq.ts` | Sequenced wire envelopes and gap detection |
  * | `clockSkew.ts` | Peer skew estimation; LWW comparison helpers |
  * | `emitter.ts` | `emitSync`, `setSyncListener`, suppress depth |
- * | `WebRTCManager.ts` | Pairing, DataChannel, message routing |
+ * | `syncHandlers.ts` | Incoming message routing to `*Direct` DB helpers |
+ * | `WebRTCManager.ts` | Pairing, DataChannel, listener registration |
  * | `SyncContext.tsx` | React provider for a singleton manager |
  * | `dbVersion.ts` | Counter ticked after remote applies; drives UI reload |
  * | `db/packLists.ts` | List writes, `*Direct` helpers, `getAll*ForSync` |

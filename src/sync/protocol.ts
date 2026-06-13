@@ -8,10 +8,39 @@
 import type { PackList, Packing, PackingItemStatus } from '../types/index.js';
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
 
+/** Bump when the wire protocol changes incompatibly. See syncArchitecture.ts. */
+export const SYNC_PROTOCOL_VERSION = 2;
+
+export type ProtocolCompatibility = 'ok' | 'warn' | 'incompatible';
+
+/**
+ * Assess whether a peer's {@link SYNC_PROTOCOL_VERSION} can sync with this app.
+ * Missing version (older peers) yields `warn` — sync proceeds with a user-visible caution.
+ */
+export function assessProtocolCompatibility(peerVersion: number | undefined): ProtocolCompatibility {
+  if (peerVersion === undefined) return 'warn';
+  if (peerVersion === SYNC_PROTOCOL_VERSION) return 'ok';
+  if (peerVersion < SYNC_PROTOCOL_VERSION) return 'warn';
+  return 'incompatible';
+}
+
+/** User-facing message when {@link assessProtocolCompatibility} is not `ok`. */
+export function protocolMismatchMessage(peerVersion: number | undefined): string {
+  const compat = assessProtocolCompatibility(peerVersion);
+  if (compat === 'ok') return '';
+  if (compat === 'incompatible') {
+    return `Cannot sync: the other device uses sync protocol v${peerVersion}, but this app uses v${SYNC_PROTOCOL_VERSION}. Update both devices to the latest version.`;
+  }
+  if (peerVersion === undefined) {
+    return 'The other device is running an older version of X2pack. Sync may not work correctly — update both devices if you see missing data.';
+  }
+  return `The other device uses sync protocol v${peerVersion} (this app uses v${SYNC_PROTOCOL_VERSION}). Sync may not work correctly.`;
+}
+
 /** JSON messages sent over the WebRTC DataChannel. See syncArchitecture.ts for semantics. */
 export type SyncMessage =
-  | { type: 'sync_meta'; sentAt: string; appVersion: string }
-  | { type: 'full_state'; sentAt?: string; appVersion?: string; packLists: PackList[]; packings: Packing[] }
+  | { type: 'sync_meta'; sentAt: string; appVersion: string; protocolVersion: number }
+  | { type: 'full_state'; sentAt?: string; appVersion?: string; protocolVersion?: number; packLists: PackList[]; packings: Packing[] }
   | { type: 'save_pack_list'; data: PackList }
   | { type: 'update_pack_list_sort_orders'; updates: { id: string; sortOrder: number; updatedAt: string }[] }
   | { type: 'update_pack_list_major'; id: string; isMajor: boolean; updatedAt: string }

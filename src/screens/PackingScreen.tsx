@@ -1,10 +1,17 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { subscribeDbVersion, getDbVersion } from '../sync/dbVersion.js';
+import { useRef, useState } from 'react';
 import { addPackingItem, getPacking, updatePackingItem, updatePackingMeta } from '../db/packings.js';
 import { getPackList } from '../db/packLists.js';
 import type { Packing, PackingItem, PackingItemStatus, Screen } from '../types/index.js';
 import SyncButton from '../components/SyncButton.js';
+import DbLoadError from '../components/DbLoadError.js';
+import { useDbReload } from '../hooks/useDbReload.js';
+import {
+  isItemOnlyPackingChange,
+  isPackingChange,
+  type DbChange,
+} from '../sync/dbVersion.js';
 import '../components/SyncButton.css';
+import '../components/DbLoadError.css';
 import './PackingScreen.css';
 
 type Props = {
@@ -16,6 +23,9 @@ type GroupedItems = {
   listName: string;
   items: Array<{ item: PackingItem; globalIndex: number }>;
 };
+
+const listNameCache = new Map<string, string>();
+listNameCache.set('__additional__', 'Additional items');
 
 function formatDateRange(from: string, to: string): string {
   const fmt = (iso: string) =>
@@ -79,23 +89,25 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
   const [showOnlyOpen, setShowOnlyOpen] = useState(false);
   const newItemInputRef = useRef<HTMLInputElement>(null);
 
-  const dbVersion = useSyncExternalStore(subscribeDbVersion, getDbVersion);
+  const { loadError, retry, loading } = useDbReload(
+    (changes) => loadPacking(changes),
+    [packingId],
+    { isRelevant: (changes) => isPackingChange(changes, packingId) },
+  );
 
-  useEffect(() => {
-    void loadPacking();
-  }, [packingId, dbVersion]);
-
-  async function loadPacking(): Promise<void> {
+  async function loadPacking(changes?: readonly DbChange[]): Promise<void> {
     const p = await getPacking(packingId);
     if (!p) return;
     setPacking(p);
     setEditName(p.name);
     setEditFromDate(p.fromDate);
     setEditToDate(p.toDate);
-    await buildGroups(p);
+    const skipNameFetch =
+      changes !== undefined && isItemOnlyPackingChange(changes, packingId);
+    await buildGroups(p, skipNameFetch);
   }
 
-  async function buildGroups(p: Packing): Promise<void> {
+  async function buildGroups(p: Packing, skipNameFetch = false): Promise<void> {
     const listIdsSeen = new Set<string>();
     const orderedListIds: string[] = [];
     for (const item of p.items) {
@@ -108,12 +120,18 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
     const nameMap = new Map<string, string>();
     await Promise.all(
       orderedListIds.map(async (id) => {
+        if (skipNameFetch && listNameCache.has(id)) {
+          nameMap.set(id, listNameCache.get(id)!);
+          return;
+        }
         if (id === '__additional__') {
           nameMap.set(id, 'Additional items');
           return;
         }
         const list = await getPackList(id);
-        nameMap.set(id, list?.name ?? 'Unknown list');
+        const name = list?.name ?? 'Unknown list';
+        listNameCache.set(id, name);
+        nameMap.set(id, name);
       }),
     );
 
@@ -134,8 +152,8 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
     else if (current === 'discarded') next = 'not_used';
     else next = 'pending';
 
-    const item = packing.items[globalIndex];
-    if (!item) return;
+    const item = packing?.items[globalIndex];
+    if (!packing || !item) return;
 
     const updated = await updatePackingItem(packingId, item.listId, item.text, next);
     setPacking(updated);
@@ -168,7 +186,21 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
     setPacking(updated);
   }
 
-  if (!packing) return <div className="packing-screen"><p style={{ padding: 24 }}>Loading…</p></div>;
+  if (loadError) {
+    return (
+      <div className="packing-screen">
+        <DbLoadError onRetry={retry} />
+      </div>
+    );
+  }
+
+  if (!packing) {
+    return (
+      <div className="packing-screen">
+        <p style={{ padding: 24 }}>{loading ? 'Loading…' : 'Packing not found.'}</p>
+      </div>
+    );
+  }
 
   const total = packing.items.length;
   const done = packing.items.filter((i) => i.status !== 'pending').length;
