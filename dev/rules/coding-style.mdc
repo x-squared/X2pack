@@ -9,6 +9,38 @@
 - No inline comments explaining *what* the code does. Only add a comment when the *why* is non-obvious.
 - File names: `PascalCase` for React components, `camelCase` for modules, `kebab-case` for CSS files.
 
+## Import order
+
+Within a file, group imports in this order (blank line between groups):
+
+1. React and third-party libraries
+2. DB / utility modules (local)
+3. Type-only imports (`import type …`)
+4. Component imports
+5. Asset and CSS imports
+
+Use `.js` extensions in all local imports (ESM output target).
+
+## React runtime patterns
+
+- Prefix floating promises in JSX event handlers with `void`: `onClick={() => void handleFoo()}`.
+- Wrap callbacks passed to child components in `useCallback`; derived values in `useMemo`.
+- No class components.
+- Prefer guard clauses over nested conditionals.
+
+## HTML and ARIA
+
+- Prefer native semantic elements over ARIA roles: `<dialog>`, `<button>`, `<nav>`, `<section>`, etc.
+- `role="presentation"` is only meaningful on elements that carry an **implicit** ARIA role (e.g. `<table>`, `<img>`). Never put it on `<div>` or `<span>` — they already have no implicit role, so the attribute is a no-op.
+- Decorative images: use `alt=""`. Never omit the `alt` attribute.
+- Icon-only buttons need an `aria-label`.
+- Never add event listeners (`onClick`, `onKeyDown`, etc.) to non-interactive elements like `<div>` or `<dialog>` — the linter rejects both (S6848, S6847). For dialog Escape-key handling, use `useEffect` + `globalThis.addEventListener('keydown', …)` instead.
+- Click-outside-to-dismiss on a backdrop `<div>` also violates S6848. Rely on explicit close buttons; the `useEffect` key listener covers keyboard dismissal.
+
+## Globals
+
+- Prefer `globalThis` over `window` (linter rule S7764). Use `globalThis.addEventListener`, `globalThis.location`, etc.
+
 ## Identifiers
 
 - Constants: `UPPER_SNAKE_CASE`.

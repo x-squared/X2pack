@@ -2,7 +2,12 @@ import { useEffect, useState } from 'react';
 import { getAllPackings, deletePacking } from '../db/packings.js';
 import type { Packing, Screen } from '../types/index.js';
 import ConfirmDialog from '../components/ConfirmDialog.js';
+import HelpDialog from '../components/HelpDialog.js';
 import PwaInstallBanner from '../components/PwaInstallBanner.js';
+import WhatsNewDialog from '../components/WhatsNewDialog.js';
+import { getAllPackLists, savePackList } from '../db/packLists.js';
+import { resolveImport } from '../utils/packListsIO.js';
+import exampleListsMd from '../example-lists.md?raw';
 import '../components/ConfirmDialog.css';
 import './HomeScreen.css';
 
@@ -17,6 +22,8 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
   const [packings, setPackings] = useState<Packing[]>([]);
   const [discardId, setDiscardId] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
 
   useEffect(() => {
     void loadPackings();
@@ -31,6 +38,14 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
 
   async function loadPackings(): Promise<void> {
     setPackings(await getAllPackings());
+  }
+
+  async function handleLoadExamples(): Promise<void> {
+    const existing = await getAllPackLists();
+    const entries = resolveImport(exampleListsMd, existing);
+    for (const { data, id } of entries) {
+      await savePackList(data, id);
+    }
   }
 
   async function handleDiscardConfirm(): Promise<void> {
@@ -51,6 +66,9 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
     <div className="home-screen">
       <header className="home-screen__header">
         <h1 className="home-screen__header-title">X2pack</h1>
+        <button className="home-screen__info-btn" onClick={() => setShowHelp(true)} aria-label="Help">
+          <span className="home-screen__help-icon" aria-hidden="true">?</span>
+        </button>
         <button className="home-screen__info-btn" onClick={() => setShowInfo(true)} aria-label="App info">
           <img src={`${import.meta.env.BASE_URL}info.png`} alt="" className="home-screen__info-icon" />
         </button>
@@ -112,6 +130,8 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
         )}
       </main>
 
+      {showHelp && <HelpDialog onDismiss={() => setShowHelp(false)} onLoadExamples={handleLoadExamples} />}
+
       {showInfo && (
         <div className="dialog-overlay">
           <dialog className="dialog info-dialog" open>
@@ -121,12 +141,16 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
               <dt>Version</dt><dd>{APP_VERSION}</dd>
               <dt>Built</dt><dd>{new Date(BUILD_TIME).toLocaleString()}</dd>
             </dl>
+            <p className="info-dialog__note">Tested on iPhone. Other platforms may work but are not officially supported.</p>
             <div className="dialog__actions">
+              <button className="btn btn--ghost dialog__btn" onClick={() => { setShowInfo(false); setShowChangelog(true); }}>Changelog</button>
               <button className="btn btn--primary dialog__btn" onClick={() => setShowInfo(false)}>Close</button>
             </div>
           </dialog>
         </div>
       )}
+
+      {showChangelog && <WhatsNewDialog defaultShowAll onDismiss={() => setShowChangelog(false)} />}
 
       {discardId != null && (
         <ConfirmDialog

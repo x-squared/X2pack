@@ -31,7 +31,10 @@ function parseMarkdown(markdown: string): ParsedList[] {
   for (const rawLine of markdown.split('\n')) {
     const line = rawLine.trim();
 
-    const headingMatch = /^#\s+(.+)$/.exec(line);
+    // \S.* (not .+): starts the capture at the first non-whitespace character, so \s+ and the
+    // capture group have disjoint domains — no backtracking between them. (.+ would overlap with
+    // \s+ on whitespace-only headings and force linear backtracking, though never exponential.)
+    const headingMatch = /^#\s+(\S.*)$/.exec(line);
     if (headingMatch) {
       const headingText = headingMatch[1]!;
       const majorMatch = new RegExp(String.raw`^${MAJOR_PREFIX}:\s+(.+)$`).exec(headingText);

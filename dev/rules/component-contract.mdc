@@ -7,6 +7,7 @@ Each component lives in its own `.tsx` file. Its CSS lives in a sibling `.css` f
 ## Props
 
 - Props interface declared immediately above the component function, never exported unless reused elsewhere.
+- All prop fields must be `readonly`: `type Props = { readonly onDismiss: () => void }` (linter rule S6759).
 - Destructure all props in the function signature.
 - Avoid spreading `...props` onto DOM elements.
 

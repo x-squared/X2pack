@@ -49,6 +49,17 @@
   line-height: 1.5;
 }
 
+.pwa-install-banner__group + .pwa-install-banner__group {
+  margin-top: var(--space-3);
+}
+
+.pwa-install-banner__group-heading {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin-bottom: var(--space-2);
+}
+
 .pwa-install-banner__steps {
   padding-left: 1.4em;
   margin: 0;

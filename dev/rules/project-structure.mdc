@@ -1,0 +1,17 @@
+# Project Structure
+
+## `dev/` Directory
+
+The `dev/` directory contains project-level documentation and tooling that is not shipped to production.
+
+| Directory | Purpose |
+|---|---|
+| `dev/plans/` | Implementation plans for features and refactors. One Markdown file per plan. |
+| `dev/rules/` | Project rules and conventions for Claude and contributors. One `.mdc` file per topic. |
+| `dev/test/` | Test utilities, fixtures, and helpers not co-located with source. |
+
+## Rules for Claude
+
+- Always write plans to `dev/plans/`, never to `~/.claude/plans/` or any other private directory.
+- Always write project rules to `dev/rules/`.
+- Never create files outside the project workspace for project-related content.

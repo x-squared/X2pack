@@ -242,6 +242,54 @@ Open Chrome DevTools → Application → Service Workers → click **Unregister*
 
 ------------------------------------------------------------------------
 
+## What's New dialog
+
+After a new version is installed, the app shows a "What's New" popover on the user's first open. It is dismissed by tapping **Got it**, the **✕** button, or anywhere on the backdrop — and will not appear again until the next version.
+
+### How it works
+
+`WhatsNewDialog` compares `localStorage.lastSeenVersion` against the build-time constant `__APP_VERSION__` (injected by Vite from `package.json`). When they differ, the dialog is shown. On dismiss the current version is written to `localStorage`, suppressing the dialog for that version.
+
+```
+localStorage.lastSeenVersion  ≠  __APP_VERSION__  →  show dialog
+                              =  __APP_VERSION__  →  skip
+```
+
+### Setting the version number
+
+The version is the `"version"` field in `package.json`. The build script (`npm run build`) calls `scripts/bump-version.sh` first, which prompts for a bump type and runs `npm version patch|minor|major` to update it automatically. You can also edit `package.json` directly.
+
+Vite reads `package.json` at build time and injects the value as `__APP_VERSION__`, so the dialog always reflects exactly what is in `package.json` at the time of the build.
+
+### Updating the changelog
+
+**The build is gated on the changelog.** `scripts/bump-version.sh` calculates the next version number before touching `package.json`, then checks that `src/changelog.md` already contains a matching `## Version X.Y.Z` heading. If the entry is missing the script aborts without modifying `package.json`, so no phantom version is created. Only once the check passes does it write the new version and hand off to the compiler.
+
+Edit `src/changelog.md` before building. Prepend a new top-level section for the new version:
+
+```md
+## Version X.Y.Z
+
+### New
+- **Feature name** — short description.
+
+### Improved
+- **Thing** — what changed and why it matters.
+```
+
+The file is imported at build time (`?raw`), parsed with `marked`, and rendered as HTML inside the dialog. Standard Markdown is supported: headings, bullet lists, bold/italic, horizontal rules.
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `src/changelog.md` | Markdown source for the dialog body |
+| `src/components/WhatsNewDialog.tsx` | Component + `shouldShowWhatsNew()` helper |
+| `src/components/WhatsNewDialog.css` | Styles |
+| `scripts/check-changelog.sh` | Build gate — aborts if no entry for the current version |
+
+------------------------------------------------------------------------
+
 ## Data model
 
 All data lives in IndexedDB in the browser — there is no server-side database. Two stores:

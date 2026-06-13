@@ -6,11 +6,13 @@ import EditPackListScreen from './screens/EditPackListScreen.js';
 import NewPackingScreen from './screens/NewPackingScreen.js';
 import PackingScreen from './screens/PackingScreen.js';
 import UpdatePrompt from './components/UpdatePrompt.js';
+import WhatsNewDialog, { shouldShowWhatsNew } from './components/WhatsNewDialog.js';
 import './App.css';
 
 export default function App(): React.ReactElement {
   const [history, setHistory] = useState<Screen[]>([{ id: 'home' }]);
   const screen = useMemo(() => history.at(-1) ?? ({ id: 'home' } as Screen), [history]);
+  const [showWhatsNew, setShowWhatsNew] = useState(() => shouldShowWhatsNew());
 
   const navigate = useCallback((next: Screen): void => {
     setHistory((prev) => [...prev, next]);
@@ -26,6 +28,7 @@ export default function App(): React.ReactElement {
   return (
     <>
       <UpdatePrompt />
+      {showWhatsNew && <WhatsNewDialog onDismiss={() => setShowWhatsNew(false)} />}
       {screen.id === 'home' && <HomeScreen onNavigate={navigate} />}
       {screen.id === 'lists' && <ListsScreen onNavigate={navigate} onBack={goBack} />}
       {screen.id === 'edit-pack-list' && (
