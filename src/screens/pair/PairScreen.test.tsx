@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PairScreen from './PairScreen.js';
-import { WebRTCManager } from '../sync/WebRTCManager.js';
+import { WebRTCManager } from '../../sync/WebRTCManager.js';
 
 vi.mock('qrcode', () => ({
   default: { toDataURL: vi.fn().mockResolvedValue('data:image/png;base64,abc') },
@@ -21,7 +21,7 @@ vi.mock('qr-scanner', () => ({
 
 const manager = new WebRTCManager();
 
-vi.mock('../sync/SyncContext.js', () => ({
+vi.mock('../../sync/SyncContext.js', () => ({
   useSyncManager: () => manager,
 }));
 

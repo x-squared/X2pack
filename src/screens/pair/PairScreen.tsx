@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import QRCode from 'qrcode';
 import QrScanner from 'qr-scanner';
-import { useSyncManager } from '../sync/SyncContext.js';
+import { useSyncManager } from '../../sync/SyncContext.js';
 import './PairScreen.css';
 
 QrScanner.WORKER_PATH = `${import.meta.env.BASE_URL}qr-scanner-worker.min.js`;

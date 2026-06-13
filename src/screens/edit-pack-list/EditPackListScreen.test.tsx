@@ -16,7 +16,7 @@ const {
   hasCircularReferenceMock: vi.fn(),
 }));
 
-vi.mock('../db/packLists.js', () => ({
+vi.mock('../../db/packLists.js', () => ({
   getAllPackLists: getAllPackListsMock,
   getPackList: getPackListMock,
   savePackList: savePackListMock,

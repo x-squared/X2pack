@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { Screen } from './types/index.js';
-import HomeScreen from './screens/HomeScreen.js';
-import ListsScreen from './screens/ListsScreen.js';
-import EditPackListScreen from './screens/EditPackListScreen.js';
-import NewPackingScreen from './screens/NewPackingScreen.js';
-import PackingScreen from './screens/PackingScreen.js';
-import PairScreen from './screens/PairScreen.js';
+import HomeScreen from './screens/home/HomeScreen.js';
+import ListsScreen from './screens/lists/ListsScreen.js';
+import EditPackListScreen from './screens/edit-pack-list/EditPackListScreen.js';
+import NewPackingScreen from './screens/new-packing/NewPackingScreen.js';
+import PackingScreen from './screens/packing/PackingScreen.js';
+import PairScreen from './screens/pair/PairScreen.js';
 import UpdatePrompt from './components/UpdatePrompt.js';
 import WhatsNewDialog, { shouldShowWhatsNew } from './components/WhatsNewDialog.js';
 import { SyncProvider } from './sync/SyncContext.js';

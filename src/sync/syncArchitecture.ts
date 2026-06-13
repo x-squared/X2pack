@@ -176,7 +176,7 @@
  * | `db/packings.ts` | Packing writes, `mergeAndPutPacking`, `*Direct` helpers |
  * | `db/tombstoneGc.ts` | Hard-delete old soft-delete tombstones |
  * | `components/SyncButton.tsx` | Header sync entry point |
- * | `screens/PairScreen.tsx` | Pairing UI |
+ * | `screens/pair/PairScreen.tsx` | Pairing UI |
  *
  * @module syncArchitecture
  */

@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { getAllPackLists, deletePackList, isDependedUpon, updatePackListSortOrders, savePackList, updatePackListMajor } from '../db/packLists.js';
-import type { PackList, Screen } from '../types/index.js';
-import ConfirmDialog from '../components/ConfirmDialog.js';
-import DbLoadError from '../components/DbLoadError.js';
-import { downloadPackLists, resolveImport } from '../utils/packListsIO.js';
-import { useDbReload } from '../hooks/useDbReload.js';
-import { isAnyPackListChange } from '../sync/dbVersion.js';
+import { getAllPackLists, deletePackList, isDependedUpon, updatePackListSortOrders, savePackList, updatePackListMajor } from '../../db/packLists.js';
+import type { PackList, Screen } from '../../types/index.js';
+import ConfirmDialog from '../../components/ConfirmDialog.js';
+import DbLoadError from '../../components/DbLoadError.js';
+import { downloadPackLists, resolveImport } from '../../utils/packListsIO.js';
+import { useDbReload } from '../../hooks/useDbReload.js';
+import { isAnyPackListChange } from '../../sync/dbVersion.js';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import '../components/ConfirmDialog.css';
-import '../components/DbLoadError.css';
+import '../../components/ConfirmDialog.css';
+import '../../components/DbLoadError.css';
 import './ListsScreen.css';
 
 type Props = {

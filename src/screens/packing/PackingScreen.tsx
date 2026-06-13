@@ -1,17 +1,17 @@
 import { useRef, useState } from 'react';
-import { addPackingItem, getPacking, updatePackingItem, updatePackingMeta } from '../db/packings.js';
-import { getPackList } from '../db/packLists.js';
-import type { Packing, PackingItem, PackingItemStatus, Screen } from '../types/index.js';
-import SyncButton from '../components/SyncButton.js';
-import DbLoadError from '../components/DbLoadError.js';
-import { useDbReload } from '../hooks/useDbReload.js';
+import { addPackingItem, getPacking, updatePackingItem, updatePackingMeta } from '../../db/packings.js';
+import { getPackList } from '../../db/packLists.js';
+import type { Packing, PackingItem, PackingItemStatus, Screen } from '../../types/index.js';
+import SyncButton from '../../components/SyncButton.js';
+import DbLoadError from '../../components/DbLoadError.js';
+import { useDbReload } from '../../hooks/useDbReload.js';
 import {
   isItemOnlyPackingChange,
   isPackingChange,
   type DbChange,
-} from '../sync/dbVersion.js';
-import '../components/SyncButton.css';
-import '../components/DbLoadError.css';
+} from '../../sync/dbVersion.js';
+import '../../components/SyncButton.css';
+import '../../components/DbLoadError.css';
 import './PackingScreen.css';
 
 type Props = {

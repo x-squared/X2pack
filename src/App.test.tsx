@@ -17,11 +17,11 @@ vi.mock('./components/WhatsNewDialog.js', () => ({
   shouldShowWhatsNew: () => false,
 }));
 
-vi.mock('./screens/PairScreen.js', () => ({
+vi.mock('./screens/pair/PairScreen.js', () => ({
   default: () => <h1>Pair mock</h1>,
 }));
 
-vi.mock('./screens/HomeScreen.js', () => ({
+vi.mock('./screens/home/HomeScreen.js', () => ({
   default: ({ onNavigate }: { onNavigate: (screen: { id: string; listId?: string | null }) => void }) => (
     <div>
       <h1>Home mock</h1>
@@ -30,7 +30,7 @@ vi.mock('./screens/HomeScreen.js', () => ({
   ),
 }));
 
-vi.mock('./screens/ListsScreen.js', () => ({
+vi.mock('./screens/lists/ListsScreen.js', () => ({
   default: ({ onNavigate }: { onNavigate: (screen: { id: string; listId?: string | null }) => void }) => (
     <div>
       <h1>Lists mock</h1>
@@ -40,7 +40,7 @@ vi.mock('./screens/ListsScreen.js', () => ({
   ),
 }));
 
-vi.mock('./screens/EditPackListScreen.js', () => ({
+vi.mock('./screens/edit-pack-list/EditPackListScreen.js', () => ({
   default: ({ onBack }: { onBack: () => void }) => (
     <div>
       <h1>Edit list mock</h1>
@@ -49,11 +49,11 @@ vi.mock('./screens/EditPackListScreen.js', () => ({
   ),
 }));
 
-vi.mock('./screens/NewPackingScreen.js', () => ({
+vi.mock('./screens/new-packing/NewPackingScreen.js', () => ({
   default: () => <h1>New packing mock</h1>,
 }));
 
-vi.mock('./screens/PackingScreen.js', () => ({
+vi.mock('./screens/packing/PackingScreen.js', () => ({
   default: () => <h1>Packing mock</h1>,
 }));
 

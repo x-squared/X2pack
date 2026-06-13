@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react';
-import { getAllPackings, deletePacking } from '../db/packings.js';
-import type { Packing, Screen } from '../types/index.js';
-import ConfirmDialog from '../components/ConfirmDialog.js';
-import HelpDialog from '../components/HelpDialog.js';
-import PwaInstallBanner from '../components/PwaInstallBanner.js';
-import WhatsNewDialog from '../components/WhatsNewDialog.js';
-import SyncButton from '../components/SyncButton.js';
-import DbLoadError from '../components/DbLoadError.js';
-import { getAllPackLists, savePackList } from '../db/packLists.js';
-import { resolveImport } from '../utils/packListsIO.js';
-import { useDbReload } from '../hooks/useDbReload.js';
-import { isAnyPackingChange } from '../sync/dbVersion.js';
-import exampleListsMd from '../example-lists.md?raw';
-import '../components/ConfirmDialog.css';
-import '../components/SyncButton.css';
-import '../components/DbLoadError.css';
+import { getAllPackings, deletePacking } from '../../db/packings.js';
+import type { Packing, Screen } from '../../types/index.js';
+import ConfirmDialog from '../../components/ConfirmDialog.js';
+import HelpDialog from '../../components/HelpDialog.js';
+import PwaInstallBanner from '../../components/PwaInstallBanner.js';
+import WhatsNewDialog from '../../components/WhatsNewDialog.js';
+import SyncButton from '../../components/SyncButton.js';
+import DbLoadError from '../../components/DbLoadError.js';
+import { getAllPackLists, savePackList } from '../../db/packLists.js';
+import { resolveImport } from '../../utils/packListsIO.js';
+import { useDbReload } from '../../hooks/useDbReload.js';
+import { isAnyPackingChange } from '../../sync/dbVersion.js';
+import exampleListsMd from '../../example-lists.md?raw';
+import '../../components/ConfirmDialog.css';
+import '../../components/SyncButton.css';
+import '../../components/DbLoadError.css';
 import './HomeScreen.css';
 
 type Props = {
