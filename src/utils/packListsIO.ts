@@ -65,10 +65,11 @@ function parseMarkdown(markdown: string): ParsedList[] {
 }
 
 export function serializePackLists(lists: readonly PackList[]): string {
-  const nameById = new Map(lists.map((l) => [l.id, l.name]));
+  const active = lists.filter((l) => !l.deletedAt);
+  const nameById = new Map(active.map((l) => [l.id, l.name]));
   const sections: string[] = [];
 
-  for (const list of lists) {
+  for (const list of active) {
     const heading = list.isMajor ? `# ${MAJOR_PREFIX}: ${list.name}` : `# ${list.name}`;
     const lines: string[] = [heading, ''];
     for (const item of list.items) {

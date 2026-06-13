@@ -18,7 +18,8 @@ type PackList = {
   items: readonly string[];          // ordered list of item text strings
   referencedListIds: readonly string[]; // IDs of other PackLists included by this list
   createdAt: string;                 // ISO 8601
-  updatedAt: string;
+  updatedAt: string;                 // bumped on every syncable write (LWW)
+  deletedAt?: string;                // soft-delete tombstone; hidden from UI, synced on reconnect
 }
 ```
 
@@ -48,7 +49,8 @@ type Packing = {
   items: readonly PackingItem[];     // expanded and frozen at creation
   status: PackingStatus;
   createdAt: string;
-  updatedAt: string;
+  updatedAt: string;                 // bumped on every syncable write (LWW)
+  deletedAt?: string;                // soft-delete tombstone; hidden from UI, synced on reconnect
 }
 ```
 
@@ -68,3 +70,10 @@ When a Packing is created, `packListIds` is resolved recursively:
 
 All DB access goes through `src/db/`. Never call `idb` directly from a screen or component.
 Functions follow verb-first naming: `getPackList`, `savePackList`, `deletePackList`, `getAllPackings`, etc.
+
+## P2P sync (local)
+
+Phones on the same network can sync in real time over WebRTC. Full architecture (pairing, wire protocol, LWW, soft deletes, item union merge): **`src/sync/syncArchitecture.ts`**.
+
+- User writes → `emitSync` → DataChannel → peer applies via `*Direct` helpers.
+- `getAll*ForSync()` includes soft-deleted tombstones for reconnect; `getAll*()` filters them for UI.

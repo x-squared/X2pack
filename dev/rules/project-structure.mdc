@@ -7,7 +7,7 @@ The `dev/` directory contains project-level documentation and tooling that is no
 | Directory | Purpose |
 |---|---|
 | `dev/plans/` | Implementation plans for features and refactors. One Markdown file per plan. |
-| `dev/rules/` | Project rules and conventions for Claude and contributors. One `.mdc` file per topic. |
+| `dev/rules/` | Project rules and conventions for Cursor and contributors. One `.mdc` file per topic. `.cursor/rules` is a symlink to this directory — do not maintain a separate copy. |
 | `dev/test/` | Test utilities, fixtures, and helpers not co-located with source. |
 
 ## Rules for Claude

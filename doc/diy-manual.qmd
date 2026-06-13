@@ -11,10 +11,9 @@ toc-depth: 3
 
 ```         
 X2pack/
-├── .cursor/rules/      Cursor coding rules (copies of dev/rules/)
 ├── dev/
 │   ├── plans/          Implementation plan documents
-│   └── rules/          Coding rules (.mdc files)
+│   └── rules/          Coding rules (.mdc files); `.cursor/rules/` is a symlink here
 ├── doc/                This manual and other documentation
 ├── dist/               Production build output (git-ignored)
 ├── public/             Static assets (icons, favicon)
@@ -337,7 +336,7 @@ See `dev/rules/navigation-architecture.mdc` for the full contract.
 
 ## Coding rules
 
-All rules are in `dev/rules/` (copies are in `.cursor/rules/`):
+All rules live in `dev/rules/`. Cursor reads them via the `.cursor/rules` → `dev/rules` symlink (edit only `dev/rules/`):
 
 | File | Topic |
 |----|----|

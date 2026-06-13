@@ -31,6 +31,15 @@ Each component lives in its own `.tsx` file. Its CSS lives in a sibling `.css` f
 - `aria-label` on icon-only buttons.
 - All interactive items are reachable by keyboard.
 
+## Dialogs and overlays
+
+Sonar flags non-interactive elements with mouse or keyboard handlers (rules S1082, S6848). Follow these patterns:
+
+- Do **not** attach `onClick` or `onKeyDown` to non-interactive wrappers (`div`, native `dialog` used as a panel).
+- Dismiss-on-outside-click: use a full-screen `<button type="button" className="…__backdrop" aria-label="Close …">` behind the panel (see `HelpDialog.tsx`).
+- Escape to close: register via `useEffect` + `globalThis.addEventListener('keydown', …)`, not `onKeyDown` on the panel (see `WhatsNewDialog.tsx`, `HelpDialog.tsx`).
+- Dialog panels: `<div role="dialog" aria-modal="true" aria-label="…">` with a visible close button.
+
 ## Mobile conventions
 
 - Touch targets are at least 44×44 px.

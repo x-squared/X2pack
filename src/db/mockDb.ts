@@ -1,26 +1,35 @@
 // Test utility — in-memory IDB stand-in. Use via vi.mock('./db.js').
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const store = new Map<string, any>();
+const stores = new Map<string, Map<string, any>>();
+
+function storeFor(name: string): Map<string, unknown> {
+  let s = stores.get(name);
+  if (!s) {
+    s = new Map();
+    stores.set(name, s);
+  }
+  return s;
+}
 
 export const mockDb = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  get(_storeName: string, key: string): Promise<any> {
-    return Promise.resolve(store.get(key));
+  get(storeName: string, key: string): Promise<any> {
+    return Promise.resolve(storeFor(storeName).get(key));
   },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getAll(_storeName: string): Promise<any[]> {
-    return Promise.resolve([...store.values()]);
+  getAll(storeName: string): Promise<any[]> {
+    return Promise.resolve([...storeFor(storeName).values()]);
   },
-  put(_storeName: string, value: { id: string }): Promise<void> {
-    store.set(value.id, structuredClone(value));
+  put(storeName: string, value: { id: string }): Promise<void> {
+    storeFor(storeName).set(value.id, structuredClone(value));
     return Promise.resolve();
   },
-  delete(_storeName: string, key: string): Promise<void> {
-    store.delete(key);
+  delete(storeName: string, key: string): Promise<void> {
+    storeFor(storeName).delete(key);
     return Promise.resolve();
   },
   clear(): void {
-    store.clear();
+    stores.clear();
   },
 };

@@ -6,7 +6,10 @@ export type PackList = {
   sortOrder?: number;
   isMajor?: boolean;
   createdAt: string;
+  /** Bumped on every syncable write; used for LWW conflict resolution (see `src/sync/syncArchitecture.ts`). */
   updatedAt: string;
+  /** When set, the list is soft-deleted (hidden from UI, included in sync snapshots as a tombstone). */
+  deletedAt?: string;
 };
 
 export type PackingItemStatus = 'pending' | 'packed' | 'discarded' | 'not_used';
@@ -28,7 +31,10 @@ export type Packing = {
   items: readonly PackingItem[];
   status: PackingStatus;
   createdAt: string;
+  /** Bumped on every syncable write; used for LWW conflict resolution (see `src/sync/syncArchitecture.ts`). */
   updatedAt: string;
+  /** When set, the packing is soft-deleted (hidden from UI, included in sync snapshots as a tombstone). */
+  deletedAt?: string;
 };
 
 export type Screen =
@@ -36,4 +42,5 @@ export type Screen =
   | { id: 'lists' }
   | { id: 'edit-pack-list'; listId: string | null }
   | { id: 'new-packing' }
-  | { id: 'packing'; packingId: string };
+  | { id: 'packing'; packingId: string }
+  | { id: 'pair' };

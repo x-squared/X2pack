@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   getAllPackLists,
   getPackList,
   savePackList,
   hasCircularReference,
 } from '../db/packLists.js';
+import { subscribeDbVersion, getDbVersion } from '../sync/dbVersion.js';
 import type { PackList, Screen } from '../types/index.js';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
@@ -145,10 +146,12 @@ export default function EditPackListScreen({
 
   const isNew = listId === null;
   const nameInvalid = nameTouched && !name.trim();
+  const dbVersion = useSyncExternalStore(subscribeDbVersion, getDbVersion);
 
   useEffect(() => {
+    if (dirtyRef.current) return;
     void load();
-  }, [listId]);
+  }, [listId, dbVersion]);
 
   async function load(): Promise<void> {
     const all = await getAllPackLists();

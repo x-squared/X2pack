@@ -1,15 +1,29 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from './db.js';
 import type { PackList } from '../types/index.js';
+import { emitSync } from '../sync/emitter.js';
+import { remoteLoses, remoteWins } from '../sync/clockSkew.js';
 
+/**
+ * Pack list persistence. User-facing writes call {@link emitSync}; peer applies
+ * use `*Direct` helpers (no re-broadcast). Sync model: `src/sync/syncArchitecture.ts`.
+ */
 export async function getAllPackLists(): Promise<PackList[]> {
+  const db = await getDb();
+  return (await db.getAll('packLists')).filter((l) => !l.deletedAt);
+}
+
+/** Includes soft-deleted tombstones — used for sync full_state. */
+export async function getAllPackListsForSync(): Promise<PackList[]> {
   const db = await getDb();
   return db.getAll('packLists');
 }
 
 export async function getPackList(id: string): Promise<PackList | undefined> {
   const db = await getDb();
-  return db.get('packLists', id);
+  const list = await db.get('packLists', id);
+  if (!list || list.deletedAt) return undefined;
+  return list;
 }
 
 export async function savePackList(
@@ -36,6 +50,7 @@ export async function savePackList(
     ...data,
   };
   await db.put('packLists', list);
+  emitSync({ type: 'save_pack_list', data: list });
   return list;
 }
 
@@ -44,24 +59,87 @@ export async function updatePackListSortOrders(
 ): Promise<void> {
   const db = await getDb();
   const tx = db.transaction('packLists', 'readwrite');
-  await Promise.all(
-    updates.map(async ({ id, sortOrder }) => {
-      const list = await tx.store.get(id);
-      if (list) await tx.store.put({ ...list, sortOrder });
-    }),
-  );
+  const applied: { id: string; sortOrder: number; updatedAt: string }[] = [];
+  for (const { id, sortOrder } of updates) {
+    const list = await tx.store.get(id);
+    if (!list || list.deletedAt) continue;
+    const updatedAt = new Date().toISOString();
+    await tx.store.put({ ...list, sortOrder, updatedAt });
+    applied.push({ id, sortOrder, updatedAt });
+  }
   await tx.done;
+  if (applied.length > 0) {
+    emitSync({ type: 'update_pack_list_sort_orders', updates: applied });
+  }
 }
 
 export async function updatePackListMajor(id: string, isMajor: boolean): Promise<void> {
   const db = await getDb();
   const list = await db.get('packLists', id);
-  if (list) await db.put('packLists', { ...list, isMajor });
+  if (!list || list.deletedAt) return;
+  const updatedAt = new Date().toISOString();
+  await db.put('packLists', { ...list, isMajor, updatedAt });
+  emitSync({ type: 'update_pack_list_major', id, isMajor, updatedAt });
 }
 
 export async function deletePackList(id: string): Promise<void> {
   const db = await getDb();
-  await db.delete('packLists', id);
+  const list = await db.get('packLists', id);
+  if (!list || list.deletedAt) return;
+  const now = new Date().toISOString();
+  const tombstone: PackList = { ...list, deletedAt: now, updatedAt: now };
+  await db.put('packLists', tombstone);
+  emitSync({ type: 'delete_pack_list', id, deletedAt: now, updatedAt: now });
+}
+
+export async function putPackListDirect(list: PackList): Promise<void> {
+  const db = await getDb();
+  const existing = await db.get('packLists', list.id);
+  if (!existing || remoteWins(list.updatedAt, existing.updatedAt)) {
+    await db.put('packLists', list);
+  }
+}
+
+/** Apply a remote soft-delete tombstone (LWW by `updatedAt`). */
+export async function deletePackListDirect(id: string, deletedAt: string, updatedAt: string): Promise<void> {
+  const db = await getDb();
+  const existing = await db.get('packLists', id);
+  if (existing && remoteLoses(updatedAt, existing.updatedAt)) return;
+  if (existing) {
+    await db.put('packLists', { ...existing, deletedAt, updatedAt });
+    return;
+  }
+  await db.put('packLists', {
+    id,
+    name: '',
+    items: [],
+    referencedListIds: [],
+    createdAt: deletedAt,
+    updatedAt,
+    deletedAt,
+  });
+}
+
+export async function putPackListSortOrderDirect(
+  id: string,
+  sortOrder: number,
+  updatedAt: string,
+): Promise<void> {
+  const db = await getDb();
+  const list = await db.get('packLists', id);
+  if (!list || list.deletedAt || remoteLoses(updatedAt, list.updatedAt)) return;
+  await db.put('packLists', { ...list, sortOrder, updatedAt });
+}
+
+export async function putPackListMajorDirect(
+  id: string,
+  isMajor: boolean,
+  updatedAt: string,
+): Promise<void> {
+  const db = await getDb();
+  const list = await db.get('packLists', id);
+  if (!list || list.deletedAt || remoteLoses(updatedAt, list.updatedAt)) return;
+  await db.put('packLists', { ...list, isMajor, updatedAt });
 }
 
 export function hasCircularReference(

@@ -1,14 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { subscribeDbVersion, getDbVersion } from '../sync/dbVersion.js';
 import { getAllPackings, deletePacking } from '../db/packings.js';
 import type { Packing, Screen } from '../types/index.js';
 import ConfirmDialog from '../components/ConfirmDialog.js';
 import HelpDialog from '../components/HelpDialog.js';
 import PwaInstallBanner from '../components/PwaInstallBanner.js';
 import WhatsNewDialog from '../components/WhatsNewDialog.js';
+import SyncButton from '../components/SyncButton.js';
 import { getAllPackLists, savePackList } from '../db/packLists.js';
 import { resolveImport } from '../utils/packListsIO.js';
 import exampleListsMd from '../example-lists.md?raw';
 import '../components/ConfirmDialog.css';
+import '../components/SyncButton.css';
 import './HomeScreen.css';
 
 type Props = {
@@ -25,9 +28,11 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
   const [showHelp, setShowHelp] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
 
+  const dbVersion = useSyncExternalStore(subscribeDbVersion, getDbVersion);
+
   useEffect(() => {
     void loadPackings();
-  }, []);
+  }, [dbVersion]);
 
   useEffect(() => {
     if (!showInfo) return;
@@ -69,8 +74,9 @@ export default function HomeScreen({ onNavigate }: Props): React.ReactElement {
         <button className="home-screen__info-btn" onClick={() => setShowHelp(true)} aria-label="Help">
           <span className="home-screen__help-icon" aria-hidden="true">?</span>
         </button>
+        <SyncButton onNavigate={onNavigate} className="home-screen__info-btn" />
         <button className="home-screen__info-btn" onClick={() => setShowInfo(true)} aria-label="App info">
-          <img src={`${import.meta.env.BASE_URL}info.png`} alt="" className="home-screen__info-icon" />
+          <span className="home-screen__help-icon" aria-hidden="true">i</span>
         </button>
       </header>
 

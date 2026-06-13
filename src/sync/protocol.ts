@@ -1,0 +1,65 @@
+/**
+ * Sync wire protocol and QR/SDP pairing utilities.
+ *
+ * **Architecture overview:** see {@link ./syncArchitecture.ts}.
+ *
+ * @module protocol
+ */
+import type { PackList, Packing, PackingItemStatus } from '../types/index.js';
+import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
+
+/** JSON messages sent over the WebRTC DataChannel. See syncArchitecture.ts for semantics. */
+export type SyncMessage =
+  | { type: 'sync_meta'; sentAt: string; appVersion: string }
+  | { type: 'full_state'; sentAt?: string; appVersion?: string; packLists: PackList[]; packings: Packing[] }
+  | { type: 'save_pack_list'; data: PackList }
+  | { type: 'update_pack_list_sort_orders'; updates: { id: string; sortOrder: number; updatedAt: string }[] }
+  | { type: 'update_pack_list_major'; id: string; isMajor: boolean; updatedAt: string }
+  | { type: 'delete_pack_list'; id: string; deletedAt: string; updatedAt: string }
+  | { type: 'create_packing'; data: Packing }
+  | { type: 'update_packing_meta'; id: string; name: string; fromDate: string; toDate: string; updatedAt: string }
+  | { type: 'update_packing_item'; packingId: string; listId: string; text: string; status: PackingItemStatus; updatedAt: string }
+  | { type: 'add_packing_item'; packingId: string; text: string }
+  | { type: 'delete_packing'; id: string; deletedAt: string; updatedAt: string };
+
+/** UI + manager state for the local QR pairing flow. */
+export type PairingPhase =
+  | 'idle'
+  | 'connecting'
+  | 'connected'
+  | 'disconnected'   // peer dropped — user did not initiate
+  | 'error'
+  | 'creating-offer'
+  | 'showing-offer-qr'
+  | 'scanning-answer'
+  | 'scanning-offer'
+  | 'creating-answer'
+  | 'showing-answer-qr';
+
+/** Compress SDP for QR encoding (lz-string, URI-safe). */
+export function encodeForQR(sdp: string): string {
+  return compressToEncodedURIComponent(sdp);
+}
+
+/** Decompress SDP scanned from a QR code. Returns empty string if invalid. */
+export function decodeFromQR(encoded: string): string {
+  return decompressFromEncodedURIComponent(encoded) ?? '';
+}
+
+/**
+ * Strip ICE candidates unsuitable for same-LAN pairing.
+ * Keeps IPv4 host candidates and `.local` mDNS names; removes srflx, relay, IPv6.
+ */
+export function filterHostCandidates(sdp: string): string {
+  return sdp
+    .split('\n')
+    .filter((line) => {
+      if (!line.startsWith('a=candidate:')) return true;
+      if (line.includes(' typ srflx') || line.includes(' typ relay')) return false;
+      const parts = line.split(' ');
+      const addr = parts[4];
+      if (!addr) return false;
+      return /^\d+\.\d+\.\d+\.\d+$/.test(addr) || addr.endsWith('.local');
+    })
+    .join('\n');
+}

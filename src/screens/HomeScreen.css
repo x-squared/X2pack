@@ -44,10 +44,41 @@
   opacity: 0.8;
 }
 
-.home-screen__info-icon {
-  width: 22px;
-  height: 22px;
-  object-fit: contain;
+.home-screen__sync-btn--connected {
+  background-color: #bbf7d0;
+  color: #14532d;
+  opacity: 1;
+  border-radius: var(--radius-full);
+}
+
+.home-screen__sync-btn--connected:hover {
+  background-color: #86efac;
+  opacity: 1;
+}
+
+.home-screen__sync-btn--broken {
+  background-color: #fecaca;
+  color: #7f1d1d;
+  opacity: 1;
+  border-radius: var(--radius-full);
+}
+
+.home-screen__sync-btn--broken:hover {
+  background-color: #fca5a5;
+  opacity: 1;
+}
+
+.home-screen__sync-btn--pairing {
+  animation: sync-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes sync-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.home-screen__sync-spin {
+  animation: sync-pulse 1.2s ease-in-out infinite;
 }
 
 .home-screen__help-icon {

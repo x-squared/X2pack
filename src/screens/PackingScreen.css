@@ -39,7 +39,10 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  text-align: center;
+}
+
+.packing-screen__sync-btn {
+  flex-shrink: 0;
 }
 
 .packing-screen__name {

@@ -14,7 +14,8 @@ export default defineConfig({
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     coverage: {
       provider: 'v8',
-      include: ['src/db/**'],
+      include: ['src/db/**', 'src/sync/**'],
+      reportsDirectory: 'dev/test/coverage',
     },
   },
   server: {

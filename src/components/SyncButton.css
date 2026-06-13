@@ -1,0 +1,34 @@
+.sync-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted, #64748b);
+  cursor: pointer;
+}
+
+.sync-btn--connected {
+  color: var(--color-success, #16a34a);
+}
+
+.sync-btn--broken {
+  color: var(--color-danger, #dc2626);
+}
+
+.sync-btn--pairing {
+  color: var(--color-primary, #0ea5e9);
+}
+
+.sync-btn__spin {
+  animation: sync-btn-spin 1s linear infinite;
+}
+
+@keyframes sync-btn-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

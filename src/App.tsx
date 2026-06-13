@@ -5,13 +5,15 @@ import ListsScreen from './screens/ListsScreen.js';
 import EditPackListScreen from './screens/EditPackListScreen.js';
 import NewPackingScreen from './screens/NewPackingScreen.js';
 import PackingScreen from './screens/PackingScreen.js';
+import PairScreen from './screens/PairScreen.js';
 import UpdatePrompt from './components/UpdatePrompt.js';
 import WhatsNewDialog, { shouldShowWhatsNew } from './components/WhatsNewDialog.js';
+import { SyncProvider } from './sync/SyncContext.js';
 import './App.css';
 
 export default function App(): React.ReactElement {
   const [history, setHistory] = useState<Screen[]>([{ id: 'home' }]);
-  const screen = useMemo(() => history.at(-1) ?? ({ id: 'home' } as Screen), [history]);
+  const screen = useMemo(() => history.at(-1) ?? { id: 'home' as const }, [history]);
   const [showWhatsNew, setShowWhatsNew] = useState(() => shouldShowWhatsNew());
 
   const navigate = useCallback((next: Screen): void => {
@@ -26,7 +28,7 @@ export default function App(): React.ReactElement {
   }, []);
 
   return (
-    <>
+    <SyncProvider>
       <UpdatePrompt />
       {showWhatsNew && <WhatsNewDialog onDismiss={() => setShowWhatsNew(false)} />}
       {screen.id === 'home' && <HomeScreen onNavigate={navigate} />}
@@ -38,6 +40,7 @@ export default function App(): React.ReactElement {
       {screen.id === 'packing' && (
         <PackingScreen packingId={screen.packingId} onNavigate={navigate} />
       )}
-    </>
+      {screen.id === 'pair' && <PairScreen onClose={goBack} />}
+    </SyncProvider>
   );
 }

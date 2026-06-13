@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { subscribeDbVersion, getDbVersion } from '../sync/dbVersion.js';
 import { addPackingItem, getPacking, updatePackingItem, updatePackingMeta } from '../db/packings.js';
 import { getPackList } from '../db/packLists.js';
 import type { Packing, PackingItem, PackingItemStatus, Screen } from '../types/index.js';
+import SyncButton from '../components/SyncButton.js';
+import '../components/SyncButton.css';
 import './PackingScreen.css';
 
 type Props = {
@@ -76,9 +79,11 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
   const [showOnlyOpen, setShowOnlyOpen] = useState(false);
   const newItemInputRef = useRef<HTMLInputElement>(null);
 
+  const dbVersion = useSyncExternalStore(subscribeDbVersion, getDbVersion);
+
   useEffect(() => {
     void loadPacking();
-  }, [packingId]);
+  }, [packingId, dbVersion]);
 
   async function loadPacking(): Promise<void> {
     const p = await getPacking(packingId);
@@ -129,7 +134,10 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
     else if (current === 'discarded') next = 'not_used';
     else next = 'pending';
 
-    const updated = await updatePackingItem(packingId, globalIndex, next);
+    const item = packing.items[globalIndex];
+    if (!item) return;
+
+    const updated = await updatePackingItem(packingId, item.listId, item.text, next);
     setPacking(updated);
     await buildGroups(updated);
   }
@@ -196,6 +204,7 @@ export default function PackingScreen({ packingId, onNavigate }: Props): React.R
           )}
         </div>
         {isDone && <span className="packing-screen__done-badge">✓ Done</span>}
+        <SyncButton onNavigate={onNavigate} className="packing-screen__sync-btn" />
       </header>
 
       <div className="packing-screen__progress-bar">

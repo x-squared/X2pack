@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { subscribeDbVersion, getDbVersion } from '../sync/dbVersion.js';
 import { getAllPackLists, deletePackList, isDependedUpon, updatePackListSortOrders, savePackList, updatePackListMajor } from '../db/packLists.js';
 import type { PackList, Screen } from '../types/index.js';
 import ConfirmDialog from '../components/ConfirmDialog.js';
@@ -137,9 +138,11 @@ export default function ListsScreen({ onNavigate, onBack }: Props): React.ReactE
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
+  const dbVersion = useSyncExternalStore(subscribeDbVersion, getDbVersion);
+
   useEffect(() => {
     void loadLists();
-  }, []);
+  }, [dbVersion]);
 
   async function loadLists(): Promise<void> {
     await flushPendingPackListSave();

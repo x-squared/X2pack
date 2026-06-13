@@ -8,6 +8,19 @@ vi.mock('./components/UpdatePrompt.js', () => ({
   default: () => null,
 }));
 
+vi.mock('./components/SyncStatusButton.js', () => ({
+  default: () => null,
+}));
+
+vi.mock('./components/WhatsNewDialog.js', () => ({
+  default: () => null,
+  shouldShowWhatsNew: () => false,
+}));
+
+vi.mock('./screens/PairScreen.js', () => ({
+  default: () => <h1>Pair mock</h1>,
+}));
+
 vi.mock('./screens/HomeScreen.js', () => ({
   default: ({ onNavigate }: { onNavigate: (screen: { id: string; listId?: string | null }) => void }) => (
     <div>

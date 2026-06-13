@@ -1,0 +1,28 @@
+# User Help File Maintenance
+
+## Rule
+
+Whenever a change affects how the user interacts with the app — new features, changed workflows, renamed actions, removed options, or modified UI behaviour — update `src/help.md` as part of the same task.
+
+## What counts as a user-facing change
+
+- New screens, dialogs, or controls
+- Changed labels, menu items, or button actions
+- Modified or removed settings/options
+- Changed keyboard shortcuts or gestures
+- New or removed export/import formats
+- Behavioural changes that affect the outcome of a user action
+
+## What does not require an update
+
+- Internal refactors with no visible effect
+- Bug fixes that restore already-documented behaviour
+- Style/layout tweaks that do not change how the app is used
+
+## How to apply
+
+1. Identify which section(s) of `src/help.md` describe the affected feature.
+2. Edit those sections to reflect the new behaviour. Add a new section if the feature is entirely new.
+3. Do not add a "Changed in vX.Y" callout unless the user asks for it — keep the help text current and authoritative, not a changelog.
+4. Leave `<!-- LOAD_EXAMPLES_BUTTON -->` in place — `HelpDialog.tsx` renders the load-examples button at that marker.
+5. Use raw HTML only for blocks that Markdown cannot express (e.g. the nested-list example). Keep button labels and other interactive UI in React, not in the markdown file.

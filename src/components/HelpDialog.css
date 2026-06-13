@@ -2,18 +2,29 @@
   position: fixed;
   inset: 0;
   z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   padding: 4dvh var(--space-4);
-  background: rgba(0, 0, 0, 0.40);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
   animation: dialog-fade-in var(--transition-fast) ease;
 }
 
+.help-overlay__backdrop {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: rgba(0, 0, 0, 0.40);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  cursor: default;
+}
+
 .help {
-  position: static;
+  grid-area: 1 / 1;
+  z-index: 1;
+  position: relative;
   background: var(--color-surface);
   border: none;
   border-radius: var(--radius-lg);
@@ -63,26 +74,47 @@
   color: var(--color-text);
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
 }
 
-.help__section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.help__heading {
+.help__content h2 {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin: 0;
+  margin: var(--space-5) 0 var(--space-2);
 }
 
-.help__body p {
-  margin: 0;
+.help__content h2:first-child {
+  margin-top: 0;
+}
+
+.help__content p {
+  margin: 0 0 var(--space-2);
+}
+
+.help__content ul,
+.help__content ol {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.help__content li {
+  position: relative;
+  padding-left: var(--space-4);
+  color: var(--color-text);
+}
+
+.help__content li::before {
+  content: '·';
+  position: absolute;
+  left: 0;
+  color: var(--color-muted);
+  font-weight: var(--font-weight-bold);
 }
 
 .help__body strong {
@@ -123,34 +155,15 @@
   padding-left: var(--space-3);
 }
 
-/* ── Bullet list ─────────────────────────────── */
-.help__list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.help__list li {
-  position: relative;
-  padding-left: var(--space-4);
-  color: var(--color-text);
-}
-
-.help__list li::before {
-  content: '·';
-  position: absolute;
-  left: 0;
-  color: var(--color-muted);
-  font-weight: var(--font-weight-bold);
+.help__content .help__example {
+  margin-bottom: var(--space-2);
 }
 
 /* ── Load button ─────────────────────────────── */
 .help__load-btn {
   width: 100%;
   font-size: var(--font-size-sm);
+  margin-top: var(--space-2);
 }
 
 /* ── Footer ─────────────────────────────────── */
